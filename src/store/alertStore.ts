@@ -297,3 +297,71 @@ export function findUserByToken(token: string): User | null {
   const users = getUsers();
   return users.find(u => u.token === token) || null;
 }
+
+// Delete alert
+export function deleteAlert(alertId: string): boolean {
+  const alerts = getAllAlerts();
+  const index = alerts.findIndex(a => a.id === alertId);
+  
+  if (index === -1) return false;
+  
+  alerts.splice(index, 1);
+  saveAlerts(alerts);
+  return true;
+}
+
+// Update alert
+export function updateAlert(alertId: string, data: {
+  addressText?: string;
+  neighborhood?: string;
+  notes?: string;
+}): Alert | null {
+  const alerts = getAllAlerts();
+  const alert = alerts.find(a => a.id === alertId);
+  
+  if (!alert) return null;
+  
+  if (data.addressText) alert.addressText = data.addressText;
+  if (data.neighborhood !== undefined) alert.neighborhood = data.neighborhood;
+  if (data.notes !== undefined) alert.notes = data.notes;
+  alert.updatedAt = new Date();
+  
+  saveAlerts(alerts);
+  return alert;
+}
+
+// Delete user
+export function deleteUser(userId: string): boolean {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index === -1) return false;
+  
+  users.splice(index, 1);
+  saveUsers(users);
+  return true;
+}
+
+// Update user
+export function updateUser(userId: string, data: {
+  fullName?: string;
+  phone?: string;
+  defaultAddressText?: string;
+}): User | null {
+  const users = getUsers();
+  const user = users.find(u => u.id === userId);
+  
+  if (!user) return null;
+  
+  if (data.fullName) user.fullName = data.fullName;
+  if (data.phone) user.phone = data.phone;
+  if (data.defaultAddressText !== undefined) user.defaultAddressText = data.defaultAddressText;
+  
+  saveUsers(users);
+  return user;
+}
+
+// Get all users (for admin)
+export function getAllUsers(): User[] {
+  return getUsers();
+}

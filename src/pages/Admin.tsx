@@ -2,15 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Lock, Users, MapPin, LogOut, Check, X, 
-  RefreshCw, Eye, Phone, Calendar, AlertTriangle,
-  CheckCircle
+  RefreshCw, Phone, Calendar, AlertTriangle,
+  CheckCircle, Trash2, Pencil
 } from 'lucide-react';
 import { 
   getAllAlerts, 
   updateAlertStatus,
-  countActiveAlerts
+  countActiveAlerts,
+  deleteAlert,
+  updateAlert,
+  getAllUsers,
+  deleteUser,
+  updateUser
 } from '@/store/alertStore';
-import { Alert, timeAgo } from '@/types/alert';
+import { Alert, User, timeAgo } from '@/types/alert';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,16 +29,29 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const ADMIN_CODE = 'lessa2030';
-
-interface User {
-  id: string;
-  fullName: string;
-  phone: string;
-  defaultAddressText?: string;
-  createdAt: Date;
-}
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -43,8 +61,28 @@ export default function Admin() {
   const [users, setUsers] = useState<User[]>([]);
   const [activeCount, setActiveCount] = useState(0);
 
+  // Edit/Delete dialogs
+  const [editAlertOpen, setEditAlertOpen] = useState(false);
+  const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [deleteUserOpen, setDeleteUserOpen] = useState(false);
+  
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Edit form states
+  const [editAlertForm, setEditAlertForm] = useState({
+    addressText: '',
+    neighborhood: '',
+    notes: ''
+  });
+  const [editUserForm, setEditUserForm] = useState({
+    fullName: '',
+    phone: '',
+    defaultAddressText: ''
+  });
+
   useEffect(() => {
-    // Check if already authenticated in session
     const isAuth = sessionStorage.getItem('sentinela_admin') === 'true';
     setIsAuthenticated(isAuth);
     
@@ -57,16 +95,7 @@ export default function Admin() {
     const allAlerts = getAllAlerts();
     setAlerts(allAlerts);
     setActiveCount(countActiveAlerts());
-    
-    // Load users from localStorage
-    const storedUsers = localStorage.getItem('sentinela_users');
-    if (storedUsers) {
-      const parsedUsers = JSON.parse(storedUsers).map((u: User) => ({
-        ...u,
-        createdAt: new Date(u.createdAt),
-      }));
-      setUsers(parsedUsers);
-    }
+    setUsers(getAllUsers());
   };
 
   const handleLogin = () => {
@@ -97,6 +126,70 @@ export default function Admin() {
     updateAlertStatus(alertId, 'ACTIVE');
     loadData();
     toast.success('Alerta reativado');
+  };
+
+  // Alert Edit/Delete handlers
+  const openEditAlert = (alert: Alert) => {
+    setSelectedAlert(alert);
+    setEditAlertForm({
+      addressText: alert.addressText,
+      neighborhood: alert.neighborhood || '',
+      notes: alert.notes || ''
+    });
+    setEditAlertOpen(true);
+  };
+
+  const handleSaveAlert = () => {
+    if (!selectedAlert) return;
+    updateAlert(selectedAlert.id, editAlertForm);
+    setEditAlertOpen(false);
+    loadData();
+    toast.success('Alerta atualizado');
+  };
+
+  const openDeleteAlert = (alert: Alert) => {
+    setSelectedAlert(alert);
+    setDeleteAlertOpen(true);
+  };
+
+  const handleConfirmDeleteAlert = () => {
+    if (!selectedAlert) return;
+    deleteAlert(selectedAlert.id);
+    setDeleteAlertOpen(false);
+    loadData();
+    toast.success('Alerta excluído');
+  };
+
+  // User Edit/Delete handlers
+  const openEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditUserForm({
+      fullName: user.fullName,
+      phone: user.phone,
+      defaultAddressText: user.defaultAddressText || ''
+    });
+    setEditUserOpen(true);
+  };
+
+  const handleSaveUser = () => {
+    if (!selectedUser) return;
+    updateUser(selectedUser.id, editUserForm);
+    setEditUserOpen(false);
+    loadData();
+    toast.success('Usuário atualizado');
+  };
+
+  const openDeleteUser = (user: User) => {
+    setSelectedUser(user);
+    setDeleteUserOpen(true);
+  };
+
+  const handleConfirmDeleteUser = () => {
+    if (!selectedUser) return;
+    deleteUser(selectedUser.id);
+    setDeleteUserOpen(false);
+    loadData();
+    toast.success('Usuário excluído');
   };
 
   const getStatusBadge = (status: Alert['status']) => {
@@ -271,29 +364,47 @@ export default function Admin() {
                               {timeAgo(alert.createdAt)}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
                                 {alert.status === 'ACTIVE' && (
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     onClick={() => handleResolveAlert(alert.id)}
-                                    className="text-success hover:text-success"
+                                    className="text-success hover:text-success h-8 w-8 p-0"
+                                    title="Resolver"
                                   >
-                                    <Check className="w-4 h-4 mr-1" />
-                                    Resolver
+                                    <Check className="w-4 h-4" />
                                   </Button>
                                 )}
                                 {(alert.status === 'RESOLVED' || alert.status === 'EXPIRED') && (
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     onClick={() => handleReactivateAlert(alert.id)}
-                                    className="text-primary hover:text-primary"
+                                    className="text-primary hover:text-primary h-8 w-8 p-0"
+                                    title="Reativar"
                                   >
-                                    <RefreshCw className="w-4 h-4 mr-1" />
-                                    Reativar
+                                    <RefreshCw className="w-4 h-4" />
                                   </Button>
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditAlert(alert)}
+                                  className="h-8 w-8 p-0"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openDeleteAlert(alert)}
+                                  className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -320,12 +431,13 @@ export default function Admin() {
                         <TableHead>Telefone</TableHead>
                         <TableHead>Endereço Padrão</TableHead>
                         <TableHead>Cadastrado em</TableHead>
+                        <TableHead>Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {users.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
                             Nenhum usuário cadastrado
                           </TableCell>
                         </TableRow>
@@ -348,6 +460,28 @@ export default function Admin() {
                                 {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                               </div>
                             </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditUser(user)}
+                                  className="h-8 w-8 p-0"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openDeleteUser(user)}
+                                  className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
@@ -359,6 +493,141 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Alert Dialog */}
+      <Dialog open={editAlertOpen} onOpenChange={setEditAlertOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Alerta</DialogTitle>
+            <DialogDescription>
+              Modifique as informações do alerta
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="addressText">Endereço</Label>
+              <Input
+                id="addressText"
+                value={editAlertForm.addressText}
+                onChange={(e) => setEditAlertForm(prev => ({ ...prev, addressText: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="neighborhood">Bairro</Label>
+              <Input
+                id="neighborhood"
+                value={editAlertForm.neighborhood}
+                onChange={(e) => setEditAlertForm(prev => ({ ...prev, neighborhood: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={editAlertForm.notes}
+                onChange={(e) => setEditAlertForm(prev => ({ ...prev, notes: e.target.value }))}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditAlertOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveAlert}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert Dialog */}
+      <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Alerta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este alerta? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDeleteAlert}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Modifique as informações do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Nome Completo</Label>
+              <Input
+                id="fullName"
+                value={editUserForm.fullName}
+                onChange={(e) => setEditUserForm(prev => ({ ...prev, fullName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                value={editUserForm.phone}
+                onChange={(e) => setEditUserForm(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="defaultAddressText">Endereço Padrão</Label>
+              <Input
+                id="defaultAddressText"
+                value={editUserForm.defaultAddressText}
+                onChange={(e) => setEditUserForm(prev => ({ ...prev, defaultAddressText: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUserOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveUser}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <AlertDialog open={deleteUserOpen} onOpenChange={setDeleteUserOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDeleteUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
