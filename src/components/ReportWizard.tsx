@@ -13,10 +13,7 @@ import {
 } from '@/types/alert';
 import { 
   createOrGetUser, 
-  createAlert, 
-  getCurrentUser,
-  countActiveAlertsByUser,
-  hasNearbyActiveAlert
+  getCurrentUser
 } from '@/store/alertStore';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -272,50 +269,140 @@ export function ReportWizard() {
     setIsLoading(true);
 
     try {
-      // Create or get user
       const fullAddress = getFullAddress();
-      const user = createOrGetUser({
-        fullName: formData.fullName,
-        phone: formatPhoneE164(formData.phone),
-        addressText: fullAddress,
-        lat: formData.lat,
-        lng: formData.lng,
-      });
-
-      setUserToken(user.token);
-
-      // Check limits
-      const activeCount = countActiveAlertsByUser(user.id);
-      if (activeCount >= 3) {
+      const phoneE164 = formatPhoneE164(formData.phone);
+      
+      // First, create or get user in Supabase
+      let userId: string;
+      let token: string;
+      
+      // Check if user exists by phone
+      const { data: existingUsers } = await supabase
+        .from('sentinela_users')
+        .select('*')
+        .eq('phone', phoneE164)
+        .limit(1);
+      
+      if (existingUsers && existingUsers.length > 0) {
+        // Update existing user
+        const existingUser = existingUsers[0];
+        userId = existingUser.id;
+        token = existingUser.token;
+        
+        await supabase
+          .from('sentinela_users')
+          .update({
+            full_name: formData.fullName,
+            default_address_text: fullAddress,
+            default_lat: formData.lat,
+            default_lng: formData.lng,
+          })
+          .eq('id', userId);
+      } else {
+        // Create new user
+        token = crypto.randomUUID().slice(0, 8).toUpperCase();
+        const { data: newUser, error: userError } = await supabase
+          .from('sentinela_users')
+          .insert({
+            full_name: formData.fullName,
+            phone: phoneE164,
+            token: token,
+            default_address_text: fullAddress,
+            default_lat: formData.lat,
+            default_lng: formData.lng,
+          })
+          .select()
+          .single();
+        
+        if (userError) throw userError;
+        userId = newUser.id;
+      }
+      
+      setUserToken(token);
+      
+      // Check active alerts count for this user
+      const { count: activeCount } = await supabase
+        .from('alerts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'ACTIVE');
+      
+      if (activeCount && activeCount >= 3) {
         toast.error('Você já tem 3 alertas ativos. Encerre um antes de criar outro.');
         setIsLoading(false);
         return;
       }
-
-      // Check nearby alerts
-      const nearbyAlert = hasNearbyActiveAlert(user.id, formData.lat, formData.lng);
-      if (nearbyAlert) {
-        toast.warning('Você já tem um alerta ativo próximo. Considere atualizá-lo.');
+      
+      // Create the alert
+      const { data: newAlert, error: alertError } = await supabase
+        .from('alerts')
+        .insert({
+          user_id: userId,
+          address_text: fullAddress,
+          neighborhood: formData.neighborhood || null,
+          lat: formData.lat,
+          lng: formData.lng,
+          notes: formData.notes || null,
+        })
+        .select()
+        .single();
+      
+      if (alertError) throw alertError;
+      
+      // Upload photos to storage and create alert_media records
+      for (const photo of formData.photos) {
+        try {
+          // Convert base64 to blob
+          const response = await fetch(photo);
+          const blob = await response.blob();
+          
+          const fileName = `${newAlert.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('alert-photos')
+            .upload(fileName, blob, {
+              contentType: 'image/jpeg',
+            });
+          
+          if (uploadError) {
+            console.error('Photo upload error:', uploadError);
+            continue;
+          }
+          
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('alert-photos')
+            .getPublicUrl(fileName);
+          
+          // Create alert_media record
+          await supabase
+            .from('alert_media')
+            .insert({
+              alert_id: newAlert.id,
+              photo_url: urlData.publicUrl,
+            });
+        } catch (photoError) {
+          console.error('Photo processing error:', photoError);
+        }
       }
-
-      // Create alert
-      const alert = createAlert({
-        userId: user.id,
+      
+      setCreatedAlertId(newAlert.id);
+      toast.success('Alerta publicado no mapa!');
+      
+      // Also update local storage for backwards compatibility
+      createOrGetUser({
+        fullName: formData.fullName,
+        phone: phoneE164,
         addressText: fullAddress,
-        neighborhood: formData.neighborhood || undefined,
         lat: formData.lat,
         lng: formData.lng,
-        notes: formData.notes || undefined,
-        photos: formData.photos,
       });
-
-      setCreatedAlertId(alert.id);
-      toast.success('Alerta publicado no mapa!');
       
       // Move to success state
       setCurrentStep('enviar');
     } catch (error) {
-      toast.error('Erro ao criar alerta');
+      console.error('Error creating alert:', error);
+      toast.error('Erro ao criar alerta. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
