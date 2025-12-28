@@ -1,21 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Lock, Users, MapPin, LogOut, Check, X, 
   RefreshCw, Phone, Calendar, AlertTriangle,
-  CheckCircle, Trash2, Pencil
+  CheckCircle, Trash2, Pencil, Loader2
 } from 'lucide-react';
-import { 
-  getAllAlerts, 
-  updateAlertStatus,
-  countActiveAlerts,
-  deleteAlert,
-  updateAlert,
-  getAllUsers,
-  deleteUser,
-  updateUser
-} from '@/store/alertStore';
-import { Alert, User, timeAgo } from '@/types/alert';
+import { supabase } from '@/integrations/supabase/client';
+import { Alert, User, AlertStatus, timeAgo } from '@/types/alert';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +44,33 @@ import { Textarea } from '@/components/ui/textarea';
 
 const ADMIN_CODE = 'lessa2030';
 
+interface AlertFromDB {
+  id: string;
+  user_id: string;
+  address_text: string;
+  neighborhood: string | null;
+  lat: number;
+  lng: number;
+  status: 'ACTIVE' | 'RESOLVED' | 'EXPIRED';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+  resolved_at: string | null;
+}
+
+interface UserFromDB {
+  id: string;
+  full_name: string;
+  phone: string;
+  token: string;
+  default_address_text: string | null;
+  default_lat: number | null;
+  default_lng: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -60,6 +78,7 @@ export default function Admin() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activeCount, setActiveCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Edit/Delete dialogs
   const [editAlertOpen, setEditAlertOpen] = useState(false);
@@ -82,6 +101,87 @@ export default function Admin() {
     defaultAddressText: ''
   });
 
+  const transformAlert = (dbAlert: AlertFromDB, photos: string[] = []): Alert => {
+    return {
+      id: dbAlert.id,
+      userId: dbAlert.user_id,
+      addressText: dbAlert.address_text,
+      neighborhood: dbAlert.neighborhood || undefined,
+      lat: dbAlert.lat,
+      lng: dbAlert.lng,
+      status: dbAlert.status as AlertStatus,
+      notes: dbAlert.notes || undefined,
+      photos,
+      createdAt: new Date(dbAlert.created_at),
+      updatedAt: new Date(dbAlert.updated_at),
+      expiresAt: new Date(dbAlert.expires_at),
+      resolvedAt: dbAlert.resolved_at ? new Date(dbAlert.resolved_at) : undefined,
+    };
+  };
+
+  const transformUser = (dbUser: UserFromDB): User => {
+    return {
+      id: dbUser.id,
+      fullName: dbUser.full_name,
+      phone: dbUser.phone,
+      token: dbUser.token,
+      defaultAddressText: dbUser.default_address_text || undefined,
+      defaultLat: dbUser.default_lat || undefined,
+      defaultLng: dbUser.default_lng || undefined,
+      createdAt: new Date(dbUser.created_at),
+    };
+  };
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch alerts
+      const { data: alertsData, error: alertsError } = await supabase
+        .from('alerts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (alertsError) throw alertsError;
+
+      // Fetch photos for alerts
+      const alertIds = (alertsData || []).map(a => a.id);
+      const { data: mediaData } = await supabase
+        .from('alert_media')
+        .select('alert_id, photo_url')
+        .in('alert_id', alertIds);
+
+      const photosByAlert: Record<string, string[]> = {};
+      (mediaData || []).forEach((m) => {
+        if (!photosByAlert[m.alert_id]) {
+          photosByAlert[m.alert_id] = [];
+        }
+        photosByAlert[m.alert_id].push(m.photo_url);
+      });
+
+      const transformedAlerts = (alertsData || []).map((dbAlert: AlertFromDB) =>
+        transformAlert(dbAlert, photosByAlert[dbAlert.id] || [])
+      );
+
+      setAlerts(transformedAlerts);
+      setActiveCount(transformedAlerts.filter(a => a.status === 'ACTIVE').length);
+
+      // Fetch users
+      const { data: usersData, error: usersError } = await supabase
+        .from('sentinela_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (usersError) throw usersError;
+
+      setUsers((usersData || []).map(transformUser));
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Erro ao carregar dados');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const isAuth = sessionStorage.getItem('sentinela_admin') === 'true';
     setIsAuthenticated(isAuth);
@@ -89,14 +189,7 @@ export default function Admin() {
     if (isAuth) {
       loadData();
     }
-  }, []);
-
-  const loadData = () => {
-    const allAlerts = getAllAlerts();
-    setAlerts(allAlerts);
-    setActiveCount(countActiveAlerts());
-    setUsers(getAllUsers());
-  };
+  }, [loadData]);
 
   const handleLogin = () => {
     if (accessCode === ADMIN_CODE) {
@@ -116,16 +209,47 @@ export default function Admin() {
     navigate('/');
   };
 
-  const handleResolveAlert = (alertId: string) => {
-    updateAlertStatus(alertId, 'RESOLVED');
-    loadData();
-    toast.success('Alerta marcado como resolvido');
+  const handleResolveAlert = async (alertId: string) => {
+    try {
+      const { error } = await supabase
+        .from('alerts')
+        .update({ 
+          status: 'RESOLVED' as const,
+          resolved_at: new Date().toISOString()
+        })
+        .eq('id', alertId);
+
+      if (error) throw error;
+
+      await loadData();
+      toast.success('Alerta marcado como resolvido');
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+      toast.error('Erro ao resolver alerta');
+    }
   };
 
-  const handleReactivateAlert = (alertId: string) => {
-    updateAlertStatus(alertId, 'ACTIVE');
-    loadData();
-    toast.success('Alerta reativado');
+  const handleReactivateAlert = async (alertId: string) => {
+    try {
+      const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      
+      const { error } = await supabase
+        .from('alerts')
+        .update({ 
+          status: 'ACTIVE' as const,
+          expires_at: newExpiresAt,
+          resolved_at: null
+        })
+        .eq('id', alertId);
+
+      if (error) throw error;
+
+      await loadData();
+      toast.success('Alerta reativado');
+    } catch (error) {
+      console.error('Error reactivating alert:', error);
+      toast.error('Erro ao reativar alerta');
+    }
   };
 
   // Alert Edit/Delete handlers
@@ -139,12 +263,28 @@ export default function Admin() {
     setEditAlertOpen(true);
   };
 
-  const handleSaveAlert = () => {
+  const handleSaveAlert = async () => {
     if (!selectedAlert) return;
-    updateAlert(selectedAlert.id, editAlertForm);
-    setEditAlertOpen(false);
-    loadData();
-    toast.success('Alerta atualizado');
+    
+    try {
+      const { error } = await supabase
+        .from('alerts')
+        .update({
+          address_text: editAlertForm.addressText,
+          neighborhood: editAlertForm.neighborhood || null,
+          notes: editAlertForm.notes || null
+        })
+        .eq('id', selectedAlert.id);
+
+      if (error) throw error;
+
+      setEditAlertOpen(false);
+      await loadData();
+      toast.success('Alerta atualizado');
+    } catch (error) {
+      console.error('Error updating alert:', error);
+      toast.error('Erro ao atualizar alerta');
+    }
   };
 
   const openDeleteAlert = (alert: Alert) => {
@@ -152,12 +292,31 @@ export default function Admin() {
     setDeleteAlertOpen(true);
   };
 
-  const handleConfirmDeleteAlert = () => {
+  const handleConfirmDeleteAlert = async () => {
     if (!selectedAlert) return;
-    deleteAlert(selectedAlert.id);
-    setDeleteAlertOpen(false);
-    loadData();
-    toast.success('Alerta excluído');
+    
+    try {
+      // First delete related media
+      await supabase
+        .from('alert_media')
+        .delete()
+        .eq('alert_id', selectedAlert.id);
+
+      // Then delete the alert
+      const { error } = await supabase
+        .from('alerts')
+        .delete()
+        .eq('id', selectedAlert.id);
+
+      if (error) throw error;
+
+      setDeleteAlertOpen(false);
+      await loadData();
+      toast.success('Alerta excluído');
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      toast.error('Erro ao excluir alerta');
+    }
   };
 
   // User Edit/Delete handlers
@@ -171,12 +330,28 @@ export default function Admin() {
     setEditUserOpen(true);
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     if (!selectedUser) return;
-    updateUser(selectedUser.id, editUserForm);
-    setEditUserOpen(false);
-    loadData();
-    toast.success('Usuário atualizado');
+    
+    try {
+      const { error } = await supabase
+        .from('sentinela_users')
+        .update({
+          full_name: editUserForm.fullName,
+          phone: editUserForm.phone,
+          default_address_text: editUserForm.defaultAddressText || null
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      setEditUserOpen(false);
+      await loadData();
+      toast.success('Usuário atualizado');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Erro ao atualizar usuário');
+    }
   };
 
   const openDeleteUser = (user: User) => {
@@ -184,12 +359,47 @@ export default function Admin() {
     setDeleteUserOpen(true);
   };
 
-  const handleConfirmDeleteUser = () => {
+  const handleConfirmDeleteUser = async () => {
     if (!selectedUser) return;
-    deleteUser(selectedUser.id);
-    setDeleteUserOpen(false);
-    loadData();
-    toast.success('Usuário excluído');
+    
+    try {
+      // First delete user's alerts and their media
+      const { data: userAlerts } = await supabase
+        .from('alerts')
+        .select('id')
+        .eq('user_id', selectedUser.id);
+
+      if (userAlerts && userAlerts.length > 0) {
+        const alertIds = userAlerts.map(a => a.id);
+        
+        // Delete media for all user's alerts
+        await supabase
+          .from('alert_media')
+          .delete()
+          .in('alert_id', alertIds);
+
+        // Delete all user's alerts
+        await supabase
+          .from('alerts')
+          .delete()
+          .eq('user_id', selectedUser.id);
+      }
+
+      // Then delete the user
+      const { error } = await supabase
+        .from('sentinela_users')
+        .delete()
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      setDeleteUserOpen(false);
+      await loadData();
+      toast.success('Usuário excluído');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Erro ao excluir usuário');
+    }
   };
 
   const getStatusBadge = (status: Alert['status']) => {
@@ -253,7 +463,7 @@ export default function Admin() {
             </div>
             <div>
               <h1 className="font-bold text-foreground">Painel Administrativo</h1>
-              <p className="text-xs text-muted-foreground">Sentinela</p>
+              <p className="text-xs text-muted-foreground">Sentinela • Supabase</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -326,8 +536,12 @@ export default function Admin() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Gerenciar Alertas</CardTitle>
-                <Button variant="outline" size="sm" onClick={loadData}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
                   Atualizar
                 </Button>
               </CardHeader>
@@ -348,7 +562,7 @@ export default function Admin() {
                       {alerts.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-muted-foreground">
-                            Nenhum alerta encontrado
+                            {isLoading ? 'Carregando...' : 'Nenhum alerta encontrado'}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -429,7 +643,7 @@ export default function Admin() {
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Telefone</TableHead>
-                        <TableHead>Endereço Padrão</TableHead>
+                        <TableHead>Token</TableHead>
                         <TableHead>Cadastrado em</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
@@ -438,7 +652,7 @@ export default function Admin() {
                       {users.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center text-muted-foreground">
-                            Nenhum usuário cadastrado
+                            {isLoading ? 'Carregando...' : 'Nenhum usuário cadastrado'}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -451,9 +665,7 @@ export default function Admin() {
                                 {user.phone}
                               </div>
                             </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {user.defaultAddressText || '-'}
-                            </TableCell>
+                            <TableCell className="font-mono text-xs">{user.token}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4" />
@@ -614,7 +826,7 @@ export default function Admin() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este usuário e todos os seus alertas? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
