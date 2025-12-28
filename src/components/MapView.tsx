@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { Alert, RIO_BRANCO_BOUNDS } from '@/types/alert';
+import { useEffect, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { Alert, RIO_BRANCO_BOUNDS, timeAgo } from '@/types/alert';
 import { AlertCard } from './AlertCard';
-import { MapPin, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface MapViewProps {
   alerts: Alert[];
@@ -9,123 +12,80 @@ interface MapViewProps {
   onAlertSelect: (alert: Alert | null) => void;
 }
 
-export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [mapError, setMapError] = useState<string | null>(null);
+// Custom marker icons
+const createCustomIcon = (status: Alert['status']) => {
+  const color = status === 'ACTIVE' ? '#EF4444' : status === 'RESOLVED' ? '#22C55E' : '#9CA3AF';
+  
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div style="
+        width: 32px;
+        height: 32px;
+        background-color: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        ${status === 'ACTIVE' ? `
+          <div style="
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background-color: ${color};
+            opacity: 0.3;
+            animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+          "></div>
+        ` : ''}
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
+};
 
-  // For now, we'll use a static map placeholder since Google Maps requires an API key
-  // The actual implementation would use @react-google-maps/api
+// Component to handle map center changes
+function MapController({ selectedAlert }: { selectedAlert: Alert | null }) {
+  const map = useMap();
   
   useEffect(() => {
-    // Simulate map loading
+    if (selectedAlert) {
+      map.setView([selectedAlert.lat, selectedAlert.lng], 15, { animate: true });
+    }
+  }, [selectedAlert, map]);
+  
+  return null;
+}
+
+export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Small delay to ensure styles are loaded
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1000);
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleAlertClick = useCallback((alert: Alert) => {
+  const handleMarkerClick = useCallback((alert: Alert) => {
     onAlertSelect(alert);
   }, [onAlertSelect]);
 
-  const getMarkerColor = (status: Alert['status']) => {
-    switch (status) {
-      case 'ACTIVE': return 'bg-primary';
-      case 'EXPIRED': return 'bg-alert-expired';
-      case 'RESOLVED': return 'bg-success';
-      default: return 'bg-primary';
-    }
-  };
-
   return (
     <div className="relative flex-1 bg-muted">
-      {/* Map Container */}
-      <div 
-        ref={mapRef} 
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `url('https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/-67.8107,-9.9747,12,0/1200x800?access_token=pk.placeholder')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Fallback map background with grid */}
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/50 to-muted">
-          <div 
-            className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage: `
-                linear-gradient(hsl(var(--border)) 1px, transparent 1px),
-                linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)
-              `,
-              backgroundSize: '50px 50px',
-            }}
-          />
-          
-          {/* Rio Branco label */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-            <p className="text-lg font-semibold text-muted-foreground/50">Rio Branco - AC</p>
-            <p className="text-sm text-muted-foreground/30">Mapa interativo</p>
-          </div>
-        </div>
-
-        {/* Alert Markers */}
-        <div className="absolute inset-0">
-          {alerts.map((alert, index) => {
-            // Calculate position based on lat/lng relative to bounds
-            const latRange = RIO_BRANCO_BOUNDS.north - RIO_BRANCO_BOUNDS.south;
-            const lngRange = RIO_BRANCO_BOUNDS.east - RIO_BRANCO_BOUNDS.west;
-            
-            const top = ((RIO_BRANCO_BOUNDS.north - alert.lat) / latRange) * 100;
-            const left = ((alert.lng - RIO_BRANCO_BOUNDS.west) / lngRange) * 100;
-
-            return (
-              <button
-                key={alert.id}
-                onClick={() => handleAlertClick(alert)}
-                className={`absolute transform -translate-x-1/2 -translate-y-full group z-10 ${
-                  selectedAlert?.id === alert.id ? 'z-20' : ''
-                }`}
-                style={{ 
-                  top: `${Math.max(10, Math.min(90, top))}%`, 
-                  left: `${Math.max(10, Math.min(90, left))}%` 
-                }}
-              >
-                <div className={`relative`}>
-                  {/* Pulse effect for active alerts */}
-                  {alert.status === 'ACTIVE' && (
-                    <span className="absolute inset-0 w-8 h-8 rounded-full bg-primary/30 animate-ping" />
-                  )}
-                  
-                  {/* Marker */}
-                  <div className={`
-                    relative flex items-center justify-center w-8 h-8 rounded-full 
-                    ${getMarkerColor(alert.status)} 
-                    shadow-lg border-2 border-card
-                    transform transition-transform group-hover:scale-110
-                    ${selectedAlert?.id === alert.id ? 'scale-125 ring-2 ring-primary ring-offset-2' : ''}
-                  `}>
-                    <MapPin className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                  
-                  {/* Marker stem */}
-                  <div className={`
-                    absolute left-1/2 -bottom-1 w-0 h-0 -translate-x-1/2
-                    border-l-[6px] border-l-transparent
-                    border-r-[6px] border-r-transparent
-                    border-t-[8px] ${alert.status === 'ACTIVE' ? 'border-t-primary' : alert.status === 'EXPIRED' ? 'border-t-alert-expired' : 'border-t-success'}
-                  `} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-30">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-[1000]">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
             <p className="text-sm text-muted-foreground">Carregando mapa...</p>
@@ -133,9 +93,44 @@ export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) 
         </div>
       )}
 
+      {/* Map Container */}
+      <MapContainer
+        center={[RIO_BRANCO_BOUNDS.center.lat, RIO_BRANCO_BOUNDS.center.lng]}
+        zoom={RIO_BRANCO_BOUNDS.defaultZoom}
+        minZoom={RIO_BRANCO_BOUNDS.minZoom}
+        maxZoom={RIO_BRANCO_BOUNDS.maxZoom}
+        className="absolute inset-0 z-0"
+        style={{ height: '100%', width: '100%' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        
+        <MapController selectedAlert={selectedAlert} />
+        
+        {alerts.map((alert) => (
+          <Marker
+            key={alert.id}
+            position={[alert.lat, alert.lng]}
+            icon={createCustomIcon(alert.status)}
+            eventHandlers={{
+              click: () => handleMarkerClick(alert),
+            }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <p className="font-semibold">{alert.addressText}</p>
+                <p className="text-muted-foreground">{timeAgo(alert.createdAt)}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+
       {/* Selected Alert Card */}
       {selectedAlert && (
-        <div className="absolute bottom-4 left-4 right-4 z-20 max-w-md mx-auto">
+        <div className="absolute bottom-4 left-4 right-4 z-[1000] max-w-md mx-auto">
           <AlertCard 
             alert={selectedAlert} 
             onClose={() => onAlertSelect(null)}
@@ -144,9 +139,22 @@ export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) 
       )}
 
       {/* Map Attribution */}
-      <div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 bg-background/50 px-2 py-1 rounded z-10">
+      <div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 bg-background/50 px-2 py-1 rounded z-[500]">
         Sentinela • Rio Branco, AC
       </div>
+
+      {/* CSS for marker animation */}
+      <style>{`
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+        .leaflet-container {
+          font-family: inherit;
+        }
+      `}</style>
     </div>
   );
 }
