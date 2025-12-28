@@ -50,6 +50,8 @@ export function ReportWizard() {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [createdAlertId, setCreatedAlertId] = useState<string | null>(null);
   
+  const [addressSearched, setAddressSearched] = useState(false);
+  
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     phone: '',
@@ -129,6 +131,7 @@ export function ReportWizard() {
           lng: longitude,
           useCurrentLocation: true,
         });
+        setAddressSearched(true);
         toast.success('Localização obtida!');
         setIsLoading(false);
       },
@@ -139,7 +142,7 @@ export function ReportWizard() {
     );
   }, []);
 
-  const geocodeAddress = useCallback(async () => {
+  const geocodeAddress = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     
     try {
@@ -160,7 +163,7 @@ export function ReportWizard() {
       if (error) {
         console.error('Geocode error:', error);
         toast.error('Erro ao buscar endereço. Use o GPS.');
-        return;
+        return false;
       }
       
       if (data.success) {
@@ -168,13 +171,17 @@ export function ReportWizard() {
           lat: data.lat,
           lng: data.lng,
         });
+        setAddressSearched(true);
         toast.success(`Endereço localizado: ${data.formattedAddress}`);
+        return true;
       } else {
         toast.warning(data.error || 'Endereço não encontrado. Use o GPS.');
+        return false;
       }
     } catch (error) {
       console.error('Geocode error:', error);
       toast.error('Erro ao buscar endereço. Use o GPS.');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -272,13 +279,23 @@ export function ReportWizard() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) return;
 
     if (currentStep === 'pergunta' && !formData.isFlooding) {
       toast.info('Use o mapa para acompanhar alertas ativos');
       navigate('/');
       return;
+    }
+
+    // Auto-trigger address search on 'local' step if not done yet
+    if (currentStep === 'local' && !addressSearched) {
+      if (!formData.street.trim() || !formData.neighborhood.trim()) {
+        toast.error('Preencha rua e bairro para buscar o endereço');
+        return;
+      }
+      const success = await geocodeAddress();
+      if (!success) return;
     }
 
     const nextIndex = currentStepIndex + 1;
@@ -574,7 +591,10 @@ export function ReportWizard() {
                 <input
                   type="text"
                   value={formData.street}
-                  onChange={(e) => updateFormData({ street: e.target.value })}
+                  onChange={(e) => {
+                    updateFormData({ street: e.target.value });
+                    setAddressSearched(false);
+                  }}
                   placeholder="Ex: Av. Ceará"
                   className="input-field"
                 />
@@ -588,7 +608,10 @@ export function ReportWizard() {
                   <input
                     type="text"
                     value={formData.number}
-                    onChange={(e) => updateFormData({ number: e.target.value })}
+                    onChange={(e) => {
+                      updateFormData({ number: e.target.value });
+                      setAddressSearched(false);
+                    }}
                     placeholder="Ex: 1500"
                     className="input-field"
                   />
@@ -600,7 +623,10 @@ export function ReportWizard() {
                   <input
                     type="text"
                     value={formData.neighborhood}
-                    onChange={(e) => updateFormData({ neighborhood: e.target.value })}
+                    onChange={(e) => {
+                      updateFormData({ neighborhood: e.target.value });
+                      setAddressSearched(false);
+                    }}
                     placeholder="Ex: Centro"
                     className="input-field"
                   />
