@@ -116,7 +116,7 @@ export function timeAgo(date: Date): string {
 }
 
 // WhatsApp help message
-export function getWhatsAppHelpUrl(alert: Alert, destinationNumber = '5568999999999'): string {
+export function getWhatsAppHelpUrl(alert: Alert, destinationNumber = '5568992288071'): string {
   const message = encodeURIComponent(
     `Sentinela: preciso de ajuda. Alagamento em ${alert.addressText}. Localização: https://maps.google.com/?q=${alert.lat},${alert.lng}. Código do alerta: ${alert.id}`
   );
