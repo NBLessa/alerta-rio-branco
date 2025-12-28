@@ -18,7 +18,7 @@ export function Header() {
             <img 
               src={logoSentinela} 
               alt="Sentinela" 
-              className="h-14 w-14 object-contain"
+              className="h-20 w-20 object-contain"
             />
             <span className="text-xl font-bold text-foreground hidden sm:block">
               Sentinela
