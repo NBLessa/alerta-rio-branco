@@ -20,7 +20,7 @@ export function Header() {
               alt="Sentinela" 
               className="h-12 w-12 sm:h-14 sm:w-14 object-contain"
             />
-            <span className="text-lg sm:text-xl font-bold text-foreground">
+            <span className="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-primary via-alert-active to-primary bg-clip-text text-transparent drop-shadow-sm animate-pulse-slow">
               Sentinela
             </span>
           </Link>
