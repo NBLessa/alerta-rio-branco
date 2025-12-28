@@ -19,6 +19,7 @@ import {
   hasNearbyActiveAlert
 } from '@/store/alertStore';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 type WizardStep = 'cadastro' | 'pergunta' | 'local' | 'evidencia' | 'termo' | 'enviar';
 
@@ -113,62 +114,43 @@ export function ReportWizard() {
   const geocodeAddress = useCallback(async () => {
     setIsLoading(true);
     
-    // Rio Branco bounding box for restricted search
-    const viewbox = '-68.05,-10.10,-67.70,-9.85';
-    
-    // Try multiple search strategies
-    const searchQueries = [
-      // Strategy 1: Street with neighborhood
-      `${formData.street}, ${formData.neighborhood}, Rio Branco`,
-      // Strategy 2: Just street name in Rio Branco
-      `${formData.street}, Rio Branco, Acre`,
-      // Strategy 3: Neighborhood only
-      `${formData.neighborhood}, Rio Branco, Acre`,
-    ];
-    
     try {
-      for (const query of searchQueries) {
-        const url = new URL('https://nominatim.openstreetmap.org/search');
-        url.searchParams.set('format', 'json');
-        url.searchParams.set('q', query);
-        url.searchParams.set('limit', '1');
-        url.searchParams.set('viewbox', viewbox);
-        url.searchParams.set('bounded', '1');
-        url.searchParams.set('countrycodes', 'br');
-        
-        const response = await fetch(url.toString(), {
-          headers: {
-            'Accept-Language': 'pt-BR',
-          }
-        });
-        
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-          const { lat, lon } = data[0];
-          const latitude = parseFloat(lat);
-          const longitude = parseFloat(lon);
-          
-          if (isWithinBounds(latitude, longitude)) {
-            updateFormData({
-              lat: latitude,
-              lng: longitude,
-            });
-            toast.success('Endereço localizado no mapa!');
-            setIsLoading(false);
-            return;
-          }
-        }
+      // Build address string
+      const addressParts = [formData.street];
+      if (formData.number.trim()) {
+        addressParts.push(formData.number);
+      }
+      addressParts.push(formData.neighborhood);
+      const address = addressParts.join(', ');
+      
+      console.log('Geocoding address:', address);
+      
+      const { data, error } = await supabase.functions.invoke('geocode', {
+        body: { address }
+      });
+      
+      if (error) {
+        console.error('Geocode error:', error);
+        toast.error('Erro ao buscar endereço. Use o GPS.');
+        return;
       }
       
-      // If no results, use neighborhood center or default
-      toast.warning('Endereço não encontrado. Por favor, use o GPS para localização precisa.');
+      if (data.success) {
+        updateFormData({
+          lat: data.lat,
+          lng: data.lng,
+        });
+        toast.success(`Endereço localizado: ${data.formattedAddress}`);
+      } else {
+        toast.warning(data.error || 'Endereço não encontrado. Use o GPS.');
+      }
     } catch (error) {
+      console.error('Geocode error:', error);
       toast.error('Erro ao buscar endereço. Use o GPS.');
     } finally {
       setIsLoading(false);
     }
-  }, [formData.street, formData.neighborhood]);
+  }, [formData.street, formData.number, formData.neighborhood]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
