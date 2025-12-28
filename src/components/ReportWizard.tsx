@@ -25,7 +25,8 @@ type WizardStep = 'cadastro' | 'pergunta' | 'local' | 'evidencia' | 'termo' | 'e
 interface FormData {
   fullName: string;
   phone: string;
-  addressText: string;
+  street: string;
+  number: string;
   neighborhood: string;
   lat: number;
   lng: number;
@@ -50,7 +51,8 @@ export function ReportWizard() {
   const [formData, setFormData] = useState<FormData>({
     fullName: existingUser?.fullName || '',
     phone: existingUser?.phone ? formatPhoneDisplay(existingUser.phone) : '',
-    addressText: existingUser?.defaultAddressText || '',
+    street: '',
+    number: '',
     neighborhood: '',
     lat: existingUser?.defaultLat || RIO_BRANCO_BOUNDS.center.lat,
     lng: existingUser?.defaultLng || RIO_BRANCO_BOUNDS.center.lng,
@@ -138,6 +140,14 @@ export function ReportWizard() {
     });
   };
 
+  const getFullAddress = (): string => {
+    const parts = [];
+    if (formData.street.trim()) parts.push(formData.street.trim());
+    if (formData.number.trim()) parts.push(formData.number.trim());
+    if (formData.neighborhood.trim()) parts.push(`- ${formData.neighborhood.trim()}`);
+    return parts.join(', ');
+  };
+
   const validateStep = (): boolean => {
     switch (currentStep) {
       case 'cadastro':
@@ -149,8 +159,12 @@ export function ReportWizard() {
           toast.error('Digite um telefone válido');
           return false;
         }
-        if (!formData.addressText.trim()) {
-          toast.error('Digite seu endereço');
+        if (!formData.street.trim()) {
+          toast.error('Digite o nome da rua');
+          return false;
+        }
+        if (!formData.neighborhood.trim()) {
+          toast.error('Digite o bairro');
           return false;
         }
         return true;
@@ -217,10 +231,11 @@ export function ReportWizard() {
 
     try {
       // Create or get user
+      const fullAddress = getFullAddress();
       const user = createOrGetUser({
         fullName: formData.fullName,
         phone: formatPhoneE164(formData.phone),
-        addressText: formData.addressText,
+        addressText: fullAddress,
         lat: formData.lat,
         lng: formData.lng,
       });
@@ -244,7 +259,7 @@ export function ReportWizard() {
       // Create alert
       const alert = createAlert({
         userId: user.id,
-        addressText: formData.addressText,
+        addressText: fullAddress,
         neighborhood: formData.neighborhood || undefined,
         lat: formData.lat,
         lng: formData.lng,
@@ -303,24 +318,52 @@ export function ReportWizard() {
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Endereço *
+                  Rua *
                 </label>
                 <input
                   type="text"
-                  value={formData.addressText}
-                  onChange={(e) => updateFormData({ addressText: e.target.value })}
-                  placeholder="Rua, número, bairro"
+                  value={formData.street}
+                  onChange={(e) => updateFormData({ street: e.target.value })}
+                  placeholder="Ex: Av. Ceará"
                   className="input-field"
                 />
-                <button
-                  onClick={handleGetLocation}
-                  disabled={isLoading}
-                  className="mt-2 flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  <Navigation className="w-4 h-4" />
-                  Usar minha localização atual
-                </button>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Número
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.number}
+                    onChange={(e) => updateFormData({ number: e.target.value })}
+                    placeholder="Ex: 1500"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Bairro *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.neighborhood}
+                    onChange={(e) => updateFormData({ neighborhood: e.target.value })}
+                    placeholder="Ex: Centro"
+                    className="input-field"
+                  />
+                </div>
+              </div>
+              
+              <button
+                onClick={handleGetLocation}
+                disabled={isLoading}
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <Navigation className="w-4 h-4" />
+                Usar minha localização atual
+              </button>
             </div>
           </div>
         );
@@ -364,28 +407,42 @@ export function ReportWizard() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Endereço do alagamento
+                  Rua do alagamento *
                 </label>
                 <input
                   type="text"
-                  value={formData.addressText}
-                  onChange={(e) => updateFormData({ addressText: e.target.value })}
-                  placeholder="Rua, número"
+                  value={formData.street}
+                  onChange={(e) => updateFormData({ street: e.target.value })}
+                  placeholder="Ex: Av. Ceará"
                   className="input-field"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Bairro (opcional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.neighborhood}
-                  onChange={(e) => updateFormData({ neighborhood: e.target.value })}
-                  placeholder="Nome do bairro"
-                  className="input-field"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Número
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.number}
+                    onChange={(e) => updateFormData({ number: e.target.value })}
+                    placeholder="Ex: 1500"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Bairro *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.neighborhood}
+                    onChange={(e) => updateFormData({ neighborhood: e.target.value })}
+                    placeholder="Ex: Centro"
+                    className="input-field"
+                  />
+                </div>
               </div>
 
               {/* Mini Map Placeholder */}
@@ -597,10 +654,7 @@ export function ReportWizard() {
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-primary mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">{formData.addressText}</p>
-                  {formData.neighborhood && (
-                    <p className="text-xs text-muted-foreground">{formData.neighborhood}</p>
-                  )}
+                  <p className="text-sm font-medium">{getFullAddress()}</p>
                 </div>
               </div>
 
