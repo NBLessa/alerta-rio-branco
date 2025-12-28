@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, MapPin, Camera, FileCheck, Send, 
@@ -11,10 +11,6 @@ import {
   isWithinBounds,
   RIO_BRANCO_BOUNDS 
 } from '@/types/alert';
-import { 
-  createOrGetUser, 
-  getCurrentUser
-} from '@/store/alertStore';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,31 +31,66 @@ interface FormData {
   acceptedTerms: boolean;
 }
 
+interface ExistingUser {
+  id: string;
+  fullName: string;
+  phone: string;
+  defaultAddressText?: string;
+  defaultLat?: number;
+  defaultLng?: number;
+}
+
 export function ReportWizard() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const existingUser = getCurrentUser();
-  
+  const [existingUser, setExistingUser] = useState<ExistingUser | null>(null);
   const [currentStep, setCurrentStep] = useState<WizardStep>('cadastro');
   const [isLoading, setIsLoading] = useState(false);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [createdAlertId, setCreatedAlertId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<FormData>({
-    fullName: existingUser?.fullName || '',
-    phone: existingUser?.phone ? formatPhoneDisplay(existingUser.phone) : '',
+    fullName: '',
+    phone: '',
     street: '',
     number: '',
     neighborhood: '',
-    lat: existingUser?.defaultLat || RIO_BRANCO_BOUNDS.center.lat,
-    lng: existingUser?.defaultLng || RIO_BRANCO_BOUNDS.center.lng,
+    lat: RIO_BRANCO_BOUNDS.center.lat,
+    lng: RIO_BRANCO_BOUNDS.center.lng,
     useCurrentLocation: false,
     isFlooding: null,
     photos: [],
     notes: '',
     acceptedTerms: false,
   });
+
+  // Load existing user from localStorage (for continuity)
+  useEffect(() => {
+    const storedUser = localStorage.getItem('sentinela_current_user');
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setExistingUser({
+          id: parsed.id,
+          fullName: parsed.fullName,
+          phone: parsed.phone,
+          defaultAddressText: parsed.defaultAddressText,
+          defaultLat: parsed.defaultLat,
+          defaultLng: parsed.defaultLng,
+        });
+        setFormData(prev => ({
+          ...prev,
+          fullName: parsed.fullName || '',
+          phone: parsed.phone ? formatPhoneDisplay(parsed.phone) : '',
+          lat: parsed.defaultLat || RIO_BRANCO_BOUNDS.center.lat,
+          lng: parsed.defaultLng || RIO_BRANCO_BOUNDS.center.lng,
+        }));
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    }
+  }, []);
 
   const steps: { id: WizardStep; label: string; icon: React.ReactNode }[] = [
     { id: 'cadastro', label: 'Cadastro', icon: <User className="w-5 h-5" /> },
@@ -389,14 +420,16 @@ export function ReportWizard() {
       setCreatedAlertId(newAlert.id);
       toast.success('Alerta publicado no mapa!');
       
-      // Also update local storage for backwards compatibility
-      createOrGetUser({
+      // Save user to localStorage for form prefill on next visit
+      localStorage.setItem('sentinela_current_user', JSON.stringify({
+        id: userId,
         fullName: formData.fullName,
         phone: phoneE164,
-        addressText: fullAddress,
-        lat: formData.lat,
-        lng: formData.lng,
-      });
+        token: token,
+        defaultAddressText: fullAddress,
+        defaultLat: formData.lat,
+        defaultLng: formData.lng,
+      }));
       
       // Move to success state
       setCurrentStep('enviar');
