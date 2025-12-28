@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   User, MapPin, Camera, FileCheck, Send, 
   ChevronLeft, ChevronRight, AlertTriangle, Check,
-  Loader2, X, Navigation
+  Loader2, X, Navigation, Search
 } from 'lucide-react';
 import { 
   formatPhoneE164, 
@@ -109,6 +109,46 @@ export function ReportWizard() {
       }
     );
   }, []);
+
+  const geocodeAddress = useCallback(async () => {
+    const address = `${formData.street} ${formData.number}, ${formData.neighborhood}, Rio Branco, Acre, Brasil`;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+        {
+          headers: {
+            'Accept-Language': 'pt-BR',
+          }
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        if (isWithinBounds(latitude, longitude)) {
+          updateFormData({
+            lat: latitude,
+            lng: longitude,
+          });
+          toast.success('Endereço localizado no mapa!');
+        } else {
+          toast.error('Endereço encontrado está fora de Rio Branco');
+        }
+      } else {
+        toast.error('Endereço não encontrado. Use a localização atual.');
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar endereço');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formData.street, formData.number, formData.neighborhood]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -467,18 +507,39 @@ export function ReportWizard() {
                 </div>
               </div>
 
-              <button
-                onClick={handleGetLocation}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:brightness-110"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Navigation className="w-5 h-5" />
-                )}
-                {formData.useCurrentLocation ? 'Localização obtida' : 'Usar localização atual'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={geocodeAddress}
+                  disabled={isLoading || !formData.street.trim() || !formData.neighborhood.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:brightness-110 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Search className="w-5 h-5" />
+                  )}
+                  Buscar endereço
+                </button>
+                <button
+                  onClick={handleGetLocation}
+                  disabled={isLoading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:brightness-110"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Navigation className="w-5 h-5" />
+                  )}
+                  GPS
+                </button>
+              </div>
+
+              {formData.useCurrentLocation && (
+                <p className="text-sm text-success flex items-center gap-2">
+                  <Check className="w-4 h-4" />
+                  Localização obtida via GPS
+                </p>
+              )}
 
               {!isWithinBounds(formData.lat, formData.lng) && (
                 <p className="text-sm text-destructive flex items-center gap-2">
