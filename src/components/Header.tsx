@@ -12,8 +12,8 @@ export function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <img src={logoSentinela} alt="Sentinela" className="h-12 w-12 sm:h-14 sm:w-14 object-contain" />
-            <span className="text-lg sm:text-xl text-foreground font-extrabold text-center">
-              SENTINELA   
+            <span className="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-primary via-alert-active to-emergency-red bg-clip-text text-transparent drop-shadow-lg animate-pulse-slow tracking-wider uppercase hover:scale-110 transition-all duration-300 cursor-default" style={{ textShadow: '0 0 20px hsl(var(--primary) / 0.6), 0 0 40px hsl(var(--alert-active) / 0.4)' }}>
+              SENTINELA
             </span>
           </Link>
 
