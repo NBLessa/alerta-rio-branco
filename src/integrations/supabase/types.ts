@@ -14,16 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alert_media: {
+        Row: {
+          alert_id: string
+          created_at: string
+          id: string
+          photo_url: string
+        }
+        Insert: {
+          alert_id: string
+          created_at?: string
+          id?: string
+          photo_url: string
+        }
+        Update: {
+          alert_id?: string
+          created_at?: string
+          id?: string
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_media_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alerts: {
+        Row: {
+          address_text: string
+          created_at: string
+          expires_at: string
+          id: string
+          lat: number
+          lng: number
+          neighborhood: string | null
+          notes: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["alert_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_text: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          lat: number
+          lng: number
+          neighborhood?: string | null
+          notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["alert_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_text?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          neighborhood?: string | null
+          notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["alert_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "sentinela_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sentinela_users: {
+        Row: {
+          created_at: string
+          default_address_text: string | null
+          default_lat: number | null
+          default_lng: number | null
+          full_name: string
+          id: string
+          phone: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_address_text?: string | null
+          default_lat?: number | null
+          default_lng?: number | null
+          full_name: string
+          id?: string
+          phone: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_address_text?: string | null
+          default_lat?: number | null
+          default_lng?: number | null
+          full_name?: string
+          id?: string
+          phone?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      expire_old_alerts: { Args: never; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      alert_status: "ACTIVE" | "RESOLVED" | "EXPIRED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +267,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_status: ["ACTIVE", "RESOLVED", "EXPIRED"],
+    },
   },
 } as const
