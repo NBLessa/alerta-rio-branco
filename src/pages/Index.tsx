@@ -64,7 +64,7 @@ const Index = () => {
             @Inovacehub
           </a>
         </p>
-        <p className="mt-1">Todos os direitos reservados ao Nathan Lessa</p>
+        <p className="mt-1">Todos os direitos reservados ao desenvolvedor Nathan Lessa</p>
       </footer>
     </div>
   );
