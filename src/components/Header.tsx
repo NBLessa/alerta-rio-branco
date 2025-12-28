@@ -12,13 +12,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
             <img 
               src={logoSentinela} 
               alt="Sentinela" 
-              className="h-10 w-10 object-contain"
+              className="h-14 w-14 object-contain"
             />
             <span className="text-xl font-bold text-foreground hidden sm:block">
               Sentinela
