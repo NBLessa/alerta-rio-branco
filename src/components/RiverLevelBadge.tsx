@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Waves, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { Waves, TrendingUp, TrendingDown, Minus, RefreshCw, Droplets } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface RiverData {
-  nivel?: number;
-  altura?: number;
-  value?: number;
-  data?: string;
-  dataHora?: string;
-  tendencia?: string;
+interface RiverApiData {
+  id: string | null;
+  rio: string;
+  data: string;
+  hora: string;
+  chuvaEmMm: number;
+  cotaEmCm: number;
 }
 
 export function RiverLevelBadge() {
-  const [riverData, setRiverData] = useState<RiverData | null>(null);
+  const [riverData, setRiverData] = useState<RiverApiData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +30,9 @@ export function RiverLevelBadge() {
       }
       
       if (data?.success && data?.data) {
-        setRiverData(data.data);
+        // API returns an array, get the first element
+        const apiData = Array.isArray(data.data) ? data.data[0] : data.data;
+        setRiverData(apiData);
       } else {
         setError(data?.error || 'Dados indisponíveis');
       }
@@ -50,22 +52,21 @@ export function RiverLevelBadge() {
     return () => clearInterval(interval);
   }, []);
 
-  const level = riverData?.nivel ?? riverData?.altura ?? riverData?.value ?? null;
+  // Convert centimeters to meters
+  const levelInMeters = riverData?.cotaEmCm ? riverData.cotaEmCm / 100 : null;
   
-  const getLevelStatus = (level: number) => {
-    if (level >= 14) return { color: 'bg-destructive', text: 'Crítico', textColor: 'text-destructive-foreground' };
-    if (level >= 13) return { color: 'bg-orange-500', text: 'Alerta', textColor: 'text-white' };
-    if (level >= 12) return { color: 'bg-yellow-500', text: 'Atenção', textColor: 'text-black' };
+  const getLevelStatus = (levelMeters: number) => {
+    if (levelMeters >= 14) return { color: 'bg-destructive', text: 'Crítico', textColor: 'text-destructive-foreground' };
+    if (levelMeters >= 13.5) return { color: 'bg-orange-500', text: 'Alerta', textColor: 'text-white' };
+    if (levelMeters >= 13) return { color: 'bg-yellow-500', text: 'Atenção', textColor: 'text-black' };
     return { color: 'bg-success', text: 'Normal', textColor: 'text-success-foreground' };
   };
 
-  const status = level !== null ? getLevelStatus(level) : null;
+  const status = levelInMeters !== null ? getLevelStatus(levelInMeters) : null;
 
-  const getTrendIcon = () => {
-    if (!riverData?.tendencia) return <Minus className="w-3 h-3" />;
-    if (riverData.tendencia === 'subindo') return <TrendingUp className="w-3 h-3" />;
-    if (riverData.tendencia === 'descendo') return <TrendingDown className="w-3 h-3" />;
-    return <Minus className="w-3 h-3" />;
+  const formatDateTime = () => {
+    if (!riverData?.data || !riverData?.hora) return '';
+    return `${riverData.hora.slice(0, 5)}`;
   };
 
   return (
@@ -86,10 +87,9 @@ export function RiverLevelBadge() {
           <RefreshCw className="w-4 h-4 animate-spin" />
         ) : error ? (
           <span className="text-sm font-medium">{error}</span>
-        ) : level !== null ? (
+        ) : levelInMeters !== null ? (
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold">{level.toFixed(2)}m</span>
-            {getTrendIcon()}
+            <span className="text-lg font-bold">{levelInMeters.toFixed(2)}m</span>
             <span className="text-xs opacity-90">{status?.text}</span>
           </div>
         ) : (
@@ -97,10 +97,16 @@ export function RiverLevelBadge() {
         )}
       </div>
       
-      <div className="text-center mt-1">
+      <div className="flex items-center justify-center gap-2 mt-1">
         <span className="text-[10px] text-muted-foreground bg-background/80 px-2 py-0.5 rounded">
-          Rio Acre
+          Rio Acre {formatDateTime() && `• ${formatDateTime()}`}
         </span>
+        {riverData?.chuvaEmMm !== undefined && riverData.chuvaEmMm > 0 && (
+          <span className="text-[10px] text-primary bg-background/80 px-2 py-0.5 rounded flex items-center gap-1">
+            <Droplets className="w-3 h-3" />
+            {riverData.chuvaEmMm}mm
+          </span>
+        )}
       </div>
     </div>
   );
