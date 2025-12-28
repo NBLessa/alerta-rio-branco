@@ -10,17 +10,17 @@ export function Header() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
+    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm safe-area-top">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2">
             <img 
               src={logoSentinela} 
               alt="Sentinela" 
-              className="h-20 w-20 object-contain"
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain"
             />
-            <span className="text-xl font-bold text-foreground hidden sm:block">
+            <span className="text-lg sm:text-xl font-bold text-foreground">
               Sentinela
             </span>
           </Link>
@@ -54,22 +54,22 @@ export function Header() {
           </nav>
 
           {/* Report Button */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link 
               to="/reportar" 
-              className="btn-emergency text-sm py-2 px-4"
+              className="btn-emergency text-xs sm:text-sm py-2 px-3 sm:px-4"
             >
               <AlertTriangle className="w-4 h-4" />
-              <span className="hidden sm:inline">Reportar</span>
+              <span>Reportar</span>
             </Link>
 
             {/* Mobile Menu Button */}
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground touch-manipulation"
               aria-label="Menu"
             >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>

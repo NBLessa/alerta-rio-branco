@@ -149,7 +149,7 @@ export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) 
 
       {/* Selected Alert Card */}
       {selectedAlert && (
-        <div className="absolute bottom-4 left-4 right-4 z-[1000] max-w-md mx-auto">
+        <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4 z-[1000] max-w-md mx-auto safe-area-bottom">
           <AlertCard 
             alert={selectedAlert} 
             onClose={() => onAlertSelect(null)}
@@ -158,8 +158,8 @@ export function MapView({ alerts, selectedAlert, onAlertSelect }: MapViewProps) 
       )}
 
       {/* Map Attribution */}
-      <div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 bg-background/50 px-2 py-1 rounded z-[500]">
-        Sentinela • Rio Branco, AC
+      <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 text-[10px] sm:text-xs text-muted-foreground/50 bg-background/50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded z-[500]">
+        Sentinela • Rio Branco
       </div>
     </div>
   );

@@ -59,9 +59,9 @@ const Index = () => {
       />
       
       {/* Footer */}
-      <footer className="bg-card border-t border-border py-3 px-4 text-center text-xs text-muted-foreground">
+      <footer className="bg-card border-t border-border py-2 sm:py-3 px-3 sm:px-4 text-center text-[10px] sm:text-xs text-muted-foreground safe-area-bottom">
         <p>
-          Desenvolvido pela{' '}
+          Por{' '}
           <a 
             href="https://instagram.com/inovacehub" 
             target="_blank" 
@@ -70,8 +70,8 @@ const Index = () => {
           >
             @Inovacehub
           </a>
+          {' '}• Nathan Lessa
         </p>
-        <p className="mt-1">Todos os direitos reservados ao desenvolvedor Nathan Lessa</p>
       </footer>
     </div>
   );

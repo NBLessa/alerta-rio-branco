@@ -125,14 +125,42 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
   }
 
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Safe area support for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Touch optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Hide scrollbar on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -164,43 +192,46 @@
 
 @layer components {
   .btn-emergency {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-4 text-lg font-bold rounded-xl transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-lg font-bold rounded-xl transition-all duration-200;
     @apply bg-primary text-primary-foreground;
     @apply hover:brightness-110 active:scale-[0.98];
     @apply shadow-lg hover:shadow-glow;
+    touch-action: manipulation;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-4 text-lg font-bold rounded-xl transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-lg font-bold rounded-xl transition-all duration-200;
     @apply bg-secondary text-secondary-foreground;
     @apply hover:brightness-110 active:scale-[0.98];
+    touch-action: manipulation;
   }
 
   .card-alert {
-    @apply bg-card rounded-2xl shadow-lg border border-border p-4 transition-all duration-200;
+    @apply bg-card rounded-xl sm:rounded-2xl shadow-lg border border-border p-3 sm:p-4 transition-all duration-200;
     @apply hover:shadow-xl;
   }
 
   .status-active {
-    @apply bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 text-sm font-semibold;
+    @apply bg-primary/10 text-primary border border-primary/20 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-semibold;
   }
 
   .status-expired {
-    @apply bg-muted text-muted-foreground border border-border rounded-full px-3 py-1 text-sm font-semibold;
+    @apply bg-muted text-muted-foreground border border-border rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-semibold;
   }
 
   .status-resolved {
-    @apply bg-success/10 text-success border border-success/20 rounded-full px-3 py-1 text-sm font-semibold;
+    @apply bg-success/10 text-success border border-success/20 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-semibold;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground;
+    @apply w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-input bg-background text-foreground text-sm sm:text-base;
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
     @apply placeholder:text-muted-foreground transition-all duration-200;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   .section-title {
-    @apply text-xl font-bold text-foreground mb-4;
+    @apply text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4;
   }
 }
 
