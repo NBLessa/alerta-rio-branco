@@ -50,6 +50,22 @@ const Index = () => {
         selectedAlert={selectedAlert}
         onAlertSelect={setSelectedAlert}
       />
+      
+      {/* Footer */}
+      <footer className="bg-card border-t border-border py-3 px-4 text-center text-xs text-muted-foreground">
+        <p>
+          Desenvolvido pela{' '}
+          <a 
+            href="https://instagram.com/inovacehub" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium"
+          >
+            @Inovacehub
+          </a>
+        </p>
+        <p className="mt-1">Todos os direitos reservados ao Nathan Lessa</p>
+      </footer>
     </div>
   );
 };
