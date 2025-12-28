@@ -3,6 +3,7 @@ import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { MapView } from '@/components/MapView';
 import { RiverLevelBadge } from '@/components/RiverLevelBadge';
+import { SplashScreen } from '@/components/SplashScreen';
 import { Alert, FILTER_OPTIONS } from '@/types/alert';
 import { getFilteredAlerts, countActiveAlerts } from '@/store/alertStore';
 
@@ -11,6 +12,11 @@ const Index = () => {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [activeFilter, setActiveFilter] = useState('active-24h');
   const [activeCount, setActiveCount] = useState(0);
+  const [showSplash, setShowSplash] = useState(() => {
+    // Only show splash once per session
+    const hasSeenSplash = sessionStorage.getItem('sentinela_splash_seen');
+    return !hasSeenSplash;
+  });
 
   useEffect(() => {
     const loadAlerts = () => {
@@ -31,6 +37,15 @@ const Index = () => {
     setActiveFilter(filterId);
     setSelectedAlert(null);
   };
+
+  const handleSplashFinish = () => {
+    sessionStorage.setItem('sentinela_splash_seen', 'true');
+    setShowSplash(false);
+  };
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
