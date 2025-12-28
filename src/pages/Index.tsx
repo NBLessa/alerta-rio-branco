@@ -1,37 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { MapView } from '@/components/MapView';
 import { RiverLevelBadge } from '@/components/RiverLevelBadge';
 import { SplashScreen } from '@/components/SplashScreen';
 import { Alert, FILTER_OPTIONS } from '@/types/alert';
-import { getFilteredAlerts, countActiveAlerts } from '@/store/alertStore';
+import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
 
 const Index = () => {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [activeFilter, setActiveFilter] = useState('active-24h');
-  const [activeCount, setActiveCount] = useState(0);
   const [showSplash, setShowSplash] = useState(() => {
-    // Only show splash once per session
     const hasSeenSplash = sessionStorage.getItem('sentinela_splash_seen');
     return !hasSeenSplash;
   });
 
-  useEffect(() => {
-    const loadAlerts = () => {
-      const filter = FILTER_OPTIONS.find(f => f.id === activeFilter);
-      const filteredAlerts = getFilteredAlerts(filter?.hours, filter?.includeHistory);
-      setAlerts(filteredAlerts);
-      setActiveCount(countActiveAlerts());
-    };
-
-    loadAlerts();
-    
-    // Refresh every 30 seconds
-    const interval = setInterval(loadAlerts, 30000);
-    return () => clearInterval(interval);
-  }, [activeFilter]);
+  // Get filter options
+  const filter = FILTER_OPTIONS.find(f => f.id === activeFilter);
+  
+  // Use realtime alerts hook for automatic updates
+  const { alerts, activeCount } = useRealtimeAlerts({
+    filterHours: filter?.hours,
+    includeHistory: filter?.includeHistory,
+    pollingInterval: 30000, // 30 seconds backup polling
+  });
 
   const handleFilterChange = (filterId: string) => {
     setActiveFilter(filterId);
