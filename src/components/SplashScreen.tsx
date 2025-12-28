@@ -37,10 +37,10 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       <div className="relative">
         {/* Pulse ring effect */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-48 h-48 rounded-full bg-white/10 animate-ping" style={{ animationDuration: '2s' }} />
+          <div className="w-64 h-64 rounded-full bg-white/10 animate-ping" style={{ animationDuration: '2s' }} />
         </div>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-40 h-40 rounded-full bg-white/20 animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.5s' }} />
+          <div className="w-56 h-56 rounded-full bg-white/20 animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.5s' }} />
         </div>
         
         {/* Logo with scale animation */}
@@ -48,7 +48,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           src={logoSentinela} 
           alt="Sentinela" 
           className={`
-            relative z-10 w-48 h-48 object-contain
+            relative z-10 w-64 h-64 object-contain
             animate-[splash-logo_1s_ease-out_forwards]
           `}
         />
