@@ -1,18 +1,28 @@
 import { useState } from 'react';
 import { Header } from '@/components/Header';
-import { Alert, timeAgo, getWhatsAppHelpUrl } from '@/types/alert';
-import { 
-  findUserByToken, 
-  getAlertsByToken, 
-  updateAlertStatus, 
-  updateAlertNotes 
-} from '@/store/alertStore';
+import { Alert, AlertStatus, timeAgo, getWhatsAppHelpUrl } from '@/types/alert';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Search, AlertTriangle, Check, RefreshCw, 
   MapPin, Clock, Edit3, MessageCircle, Loader2,
   Key
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface AlertFromDB {
+  id: string;
+  user_id: string;
+  address_text: string;
+  neighborhood: string | null;
+  lat: number;
+  lng: number;
+  status: 'ACTIVE' | 'RESOLVED' | 'EXPIRED';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+  resolved_at: string | null;
+}
 
 const MyAlerts = () => {
   const [token, setToken] = useState('');
@@ -22,7 +32,25 @@ const MyAlerts = () => {
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [tempNotes, setTempNotes] = useState('');
 
-  const handleSearch = () => {
+  const transformAlert = (dbAlert: AlertFromDB, photos: string[] = []): Alert => {
+    return {
+      id: dbAlert.id,
+      userId: dbAlert.user_id,
+      addressText: dbAlert.address_text,
+      neighborhood: dbAlert.neighborhood || undefined,
+      lat: dbAlert.lat,
+      lng: dbAlert.lng,
+      status: dbAlert.status as AlertStatus,
+      notes: dbAlert.notes || undefined,
+      photos,
+      createdAt: new Date(dbAlert.created_at),
+      updatedAt: new Date(dbAlert.updated_at),
+      expiresAt: new Date(dbAlert.expires_at),
+      resolvedAt: dbAlert.resolved_at ? new Date(dbAlert.resolved_at) : undefined,
+    };
+  };
+
+  const handleSearch = async () => {
     if (!token.trim()) {
       toast.error('Digite seu código Sentinela');
       return;
@@ -30,50 +58,145 @@ const MyAlerts = () => {
 
     setIsSearching(true);
     
-    setTimeout(() => {
-      const user = findUserByToken(token.toUpperCase().trim());
+    try {
+      // Find user by token
+      const { data: users, error: userError } = await supabase
+        .from('sentinela_users')
+        .select('*')
+        .eq('token', token.toUpperCase().trim())
+        .limit(1);
       
-      if (!user) {
+      if (userError) throw userError;
+      
+      if (!users || users.length === 0) {
         toast.error('Código não encontrado');
         setAlerts([]);
-      } else {
-        const userAlerts = getAlertsByToken(token.toUpperCase().trim());
-        setAlerts(userAlerts);
-        
-        if (userAlerts.length === 0) {
-          toast.info('Nenhum alerta encontrado');
-        } else {
-          toast.success(`${userAlerts.length} alerta(s) encontrado(s)`);
-        }
+        setHasSearched(true);
+        setIsSearching(false);
+        return;
       }
       
+      const user = users[0];
+      
+      // Fetch alerts for this user
+      const { data: alertsData, error: alertsError } = await supabase
+        .from('alerts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (alertsError) throw alertsError;
+      
+      if (!alertsData || alertsData.length === 0) {
+        toast.info('Nenhum alerta encontrado');
+        setAlerts([]);
+        setHasSearched(true);
+        setIsSearching(false);
+        return;
+      }
+      
+      // Fetch photos for all alerts
+      const alertIds = alertsData.map(a => a.id);
+      const { data: mediaData } = await supabase
+        .from('alert_media')
+        .select('alert_id, photo_url')
+        .in('alert_id', alertIds);
+      
+      // Group photos by alert_id
+      const photosByAlert: Record<string, string[]> = {};
+      (mediaData || []).forEach((m) => {
+        if (!photosByAlert[m.alert_id]) {
+          photosByAlert[m.alert_id] = [];
+        }
+        photosByAlert[m.alert_id].push(m.photo_url);
+      });
+      
+      // Transform alerts
+      const transformedAlerts = alertsData.map((dbAlert: AlertFromDB) => 
+        transformAlert(dbAlert, photosByAlert[dbAlert.id] || [])
+      );
+      
+      setAlerts(transformedAlerts);
+      toast.success(`${transformedAlerts.length} alerta(s) encontrado(s)`);
+      
+    } catch (error) {
+      console.error('Error searching alerts:', error);
+      toast.error('Erro ao buscar alertas');
+      setAlerts([]);
+    } finally {
       setHasSearched(true);
       setIsSearching(false);
-    }, 500);
+    }
   };
 
-  const handleResolve = (alertId: string) => {
-    const updated = updateAlertStatus(alertId, 'RESOLVED');
-    if (updated) {
-      setAlerts(prev => prev.map(a => a.id === alertId ? updated : a));
+  const handleResolve = async (alertId: string) => {
+    try {
+      const { error } = await supabase
+        .from('alerts')
+        .update({ 
+          status: 'RESOLVED' as const,
+          resolved_at: new Date().toISOString()
+        })
+        .eq('id', alertId);
+      
+      if (error) throw error;
+      
+      setAlerts(prev => prev.map(a => 
+        a.id === alertId 
+          ? { ...a, status: 'RESOLVED' as AlertStatus, resolvedAt: new Date() } 
+          : a
+      ));
       toast.success('Alerta encerrado');
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+      toast.error('Erro ao encerrar alerta');
     }
   };
 
-  const handleRenew = (alertId: string) => {
-    const updated = updateAlertStatus(alertId, 'ACTIVE');
-    if (updated) {
-      setAlerts(prev => prev.map(a => a.id === alertId ? updated : a));
+  const handleRenew = async (alertId: string) => {
+    try {
+      const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      
+      const { error } = await supabase
+        .from('alerts')
+        .update({ 
+          status: 'ACTIVE' as const,
+          expires_at: newExpiresAt,
+          resolved_at: null
+        })
+        .eq('id', alertId);
+      
+      if (error) throw error;
+      
+      setAlerts(prev => prev.map(a => 
+        a.id === alertId 
+          ? { ...a, status: 'ACTIVE' as AlertStatus, expiresAt: new Date(newExpiresAt), resolvedAt: undefined } 
+          : a
+      ));
       toast.success('Alerta renovado por mais 24h');
+    } catch (error) {
+      console.error('Error renewing alert:', error);
+      toast.error('Erro ao renovar alerta');
     }
   };
 
-  const handleSaveNotes = (alertId: string) => {
-    const updated = updateAlertNotes(alertId, tempNotes);
-    if (updated) {
-      setAlerts(prev => prev.map(a => a.id === alertId ? updated : a));
+  const handleSaveNotes = async (alertId: string) => {
+    try {
+      const { error } = await supabase
+        .from('alerts')
+        .update({ notes: tempNotes })
+        .eq('id', alertId);
+      
+      if (error) throw error;
+      
+      setAlerts(prev => prev.map(a => 
+        a.id === alertId ? { ...a, notes: tempNotes } : a
+      ));
       setEditingNotes(null);
       toast.success('Observação atualizada');
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast.error('Erro ao salvar observação');
     }
   };
 
