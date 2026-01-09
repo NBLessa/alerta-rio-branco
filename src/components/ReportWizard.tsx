@@ -682,10 +682,10 @@ export function ReportWizard() {
                 </button>
               </div>
 
-              {formData.useCurrentLocation && (
-                <p className="text-sm text-success flex items-center gap-2">
+              {addressSearched && (
+                <p className="text-sm text-success flex items-center gap-2 animate-fade-in">
                   <Check className="w-4 h-4" />
-                  Localização obtida via GPS
+                  {formData.useCurrentLocation ? 'Localização obtida via GPS' : 'Endereço localizado com sucesso'}
                 </p>
               )}
 
