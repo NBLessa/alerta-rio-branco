@@ -9,7 +9,7 @@ import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
 
 const Index = () => {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
-  const [activeFilter, setActiveFilter] = useState('active-24h');
+  const [activeFilter, setActiveFilter] = useState('active-all');
   const [showSplash, setShowSplash] = useState(() => {
     const hasSeenSplash = sessionStorage.getItem('sentinela_splash_seen');
     return !hasSeenSplash;
