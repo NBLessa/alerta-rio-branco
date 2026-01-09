@@ -54,7 +54,8 @@ export interface FilterOption {
 }
 
 export const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'active-24h', label: 'Ativos (24h)', hours: 24 },
+  { id: 'active-all', label: 'Todos Ativos' },
+  { id: 'active-24h', label: 'Últimas 24h', hours: 24 },
   { id: 'active-6h', label: 'Últimas 6h', hours: 6 },
   { id: 'history', label: 'Histórico', includeHistory: true },
 ];
