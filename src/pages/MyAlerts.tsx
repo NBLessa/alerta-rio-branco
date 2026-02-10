@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Alert, AlertStatus, timeAgo, getWhatsAppHelpUrl } from '@/types/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Search, AlertTriangle, Check, RefreshCw, 
+import {
+  Search, AlertTriangle, Check, RefreshCw,
   MapPin, Clock, Edit3, MessageCircle, Loader2,
-  Key
+  Key, Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,17 +57,16 @@ const MyAlerts = () => {
     }
 
     setIsSearching(true);
-    
+
     try {
-      // Find user by token
       const { data: users, error: userError } = await supabase
         .from('sentinela_users')
         .select('*')
         .eq('token', token.toUpperCase().trim())
         .limit(1);
-      
+
       if (userError) throw userError;
-      
+
       if (!users || users.length === 0) {
         toast.error('Código não encontrado');
         setAlerts([]);
@@ -75,18 +74,17 @@ const MyAlerts = () => {
         setIsSearching(false);
         return;
       }
-      
+
       const user = users[0];
-      
-      // Fetch alerts for this user
+
       const { data: alertsData, error: alertsError } = await supabase
         .from('alerts')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      
+
       if (alertsError) throw alertsError;
-      
+
       if (!alertsData || alertsData.length === 0) {
         toast.info('Nenhum alerta encontrado');
         setAlerts([]);
@@ -94,15 +92,13 @@ const MyAlerts = () => {
         setIsSearching(false);
         return;
       }
-      
-      // Fetch photos for all alerts
+
       const alertIds = alertsData.map(a => a.id);
       const { data: mediaData } = await supabase
         .from('alert_media')
         .select('alert_id, photo_url')
         .in('alert_id', alertIds);
-      
-      // Group photos by alert_id
+
       const photosByAlert: Record<string, string[]> = {};
       (mediaData || []).forEach((m) => {
         if (!photosByAlert[m.alert_id]) {
@@ -110,15 +106,14 @@ const MyAlerts = () => {
         }
         photosByAlert[m.alert_id].push(m.photo_url);
       });
-      
-      // Transform alerts
-      const transformedAlerts = alertsData.map((dbAlert: AlertFromDB) => 
+
+      const transformedAlerts = alertsData.map((dbAlert: AlertFromDB) =>
         transformAlert(dbAlert, photosByAlert[dbAlert.id] || [])
       );
-      
+
       setAlerts(transformedAlerts);
       toast.success(`${transformedAlerts.length} alerta(s) encontrado(s)`);
-      
+
     } catch (error) {
       console.error('Error searching alerts:', error);
       toast.error('Erro ao buscar alertas');
@@ -133,17 +128,17 @@ const MyAlerts = () => {
     try {
       const { error } = await supabase
         .from('alerts')
-        .update({ 
+        .update({
           status: 'RESOLVED' as const,
           resolved_at: new Date().toISOString()
         })
         .eq('id', alertId);
-      
+
       if (error) throw error;
-      
-      setAlerts(prev => prev.map(a => 
-        a.id === alertId 
-          ? { ...a, status: 'RESOLVED' as AlertStatus, resolvedAt: new Date() } 
+
+      setAlerts(prev => prev.map(a =>
+        a.id === alertId
+          ? { ...a, status: 'RESOLVED' as AlertStatus, resolvedAt: new Date() }
           : a
       ));
       toast.success('Alerta encerrado');
@@ -156,21 +151,21 @@ const MyAlerts = () => {
   const handleRenew = async (alertId: string) => {
     try {
       const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      
+
       const { error } = await supabase
         .from('alerts')
-        .update({ 
+        .update({
           status: 'ACTIVE' as const,
           expires_at: newExpiresAt,
           resolved_at: null
         })
         .eq('id', alertId);
-      
+
       if (error) throw error;
-      
-      setAlerts(prev => prev.map(a => 
-        a.id === alertId 
-          ? { ...a, status: 'ACTIVE' as AlertStatus, expiresAt: new Date(newExpiresAt), resolvedAt: undefined } 
+
+      setAlerts(prev => prev.map(a =>
+        a.id === alertId
+          ? { ...a, status: 'ACTIVE' as AlertStatus, expiresAt: new Date(newExpiresAt), resolvedAt: undefined }
           : a
       ));
       toast.success('Alerta renovado por mais 24h');
@@ -186,10 +181,10 @@ const MyAlerts = () => {
         .from('alerts')
         .update({ notes: tempNotes })
         .eq('id', alertId);
-      
+
       if (error) throw error;
-      
-      setAlerts(prev => prev.map(a => 
+
+      setAlerts(prev => prev.map(a =>
         a.id === alertId ? { ...a, notes: tempNotes } : a
       ));
       setEditingNotes(null);
@@ -204,8 +199,11 @@ const MyAlerts = () => {
     switch (status) {
       case 'ACTIVE':
         return (
-          <span className="status-active flex items-center gap-1">
-            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+          <span className="status-active flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            </span>
             Ativo
           </span>
         );
@@ -224,26 +222,29 @@ const MyAlerts = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      
+
       <main className="flex-1 p-4">
         <div className="max-w-md mx-auto">
-          {/* Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+          {/* Hero section */}
+          <div className="text-center mb-6 animate-fade-in">
+            <div className="w-14 h-14 bg-gradient-to-br from-primary/15 to-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/10">
+              <Shield className="w-7 h-7 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground mb-1.5">
               Meus Alertas
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Gerencie seus alertas de alagamento
             </p>
           </div>
 
           {/* Token Search */}
-          <div className="bg-card rounded-2xl shadow-lg border border-border p-6 mb-6">
-            <label className="block text-sm font-medium text-foreground mb-3">
-              <Key className="w-4 h-4 inline mr-2" />
-              Digite seu Código Sentinela
+          <div className="bg-card rounded-2xl shadow-lg border border-border/60 p-5 sm:p-6 mb-6 animate-slide-up">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
+              <Key className="w-4 h-4 text-primary" />
+              Código Sentinela
             </label>
-            
+
             <div className="flex gap-2">
               <input
                 type="text"
@@ -257,7 +258,7 @@ const MyAlerts = () => {
               <button
                 onClick={handleSearch}
                 disabled={isSearching}
-                className="btn-emergency px-6"
+                className="btn-emergency px-5"
               >
                 {isSearching ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -270,25 +271,31 @@ const MyAlerts = () => {
 
           {/* Alerts List */}
           {hasSearched && (
-            <div className="space-y-4 animate-fade-in">
+            <div className="space-y-4">
               {alerts.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhum alerta encontrado</p>
-                  <p className="text-sm mt-2">Verifique o código e tente novamente</p>
+                <div className="text-center py-16 animate-fade-in">
+                  <div className="w-16 h-16 bg-muted/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="w-8 h-8 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-base font-medium text-muted-foreground">Nenhum alerta encontrado</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1.5">Verifique o código e tente novamente</p>
                 </div>
               ) : (
-                alerts.map((alert) => (
-                  <div key={alert.id} className="card-alert">
+                alerts.map((alert, index) => (
+                  <div
+                    key={alert.id}
+                    className="card-alert animate-slide-up"
+                    style={{ animationDelay: `${index * 80}ms` }}
+                  >
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-4">
                       <div>
-                        <p className="font-mono text-sm text-muted-foreground mb-1">
-                          #{alert.id}
+                        <p className="font-mono text-xs text-muted-foreground/60 mb-1.5">
+                          #{alert.id.slice(0, 8)}
                         </p>
                         {getStatusBadge(alert.status)}
                       </div>
-                      <div className="text-right text-sm text-muted-foreground">
+                      <div className="text-right text-xs text-muted-foreground">
                         <div className="flex items-center gap-1 justify-end">
                           <Clock className="w-3 h-3" />
                           {timeAgo(alert.createdAt)}
@@ -298,7 +305,9 @@ const MyAlerts = () => {
 
                     {/* Location */}
                     <div className="flex items-start gap-2 mb-4">
-                      <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="mt-0.5 p-1 rounded-md bg-primary/10 flex-shrink-0">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                      </div>
                       <div>
                         <p className="text-sm font-medium">{alert.addressText}</p>
                         {alert.neighborhood && (
@@ -309,13 +318,13 @@ const MyAlerts = () => {
 
                     {/* Photos */}
                     {alert.photos.length > 0 && (
-                      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                        {alert.photos.map((photo, index) => (
-                          <img 
-                            key={index}
-                            src={photo} 
-                            alt={`Foto ${index + 1}`}
-                            className="w-16 h-16 object-cover rounded-lg border border-border flex-shrink-0"
+                      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+                        {alert.photos.map((photo, i) => (
+                          <img
+                            key={i}
+                            src={photo}
+                            alt={`Foto ${i + 1}`}
+                            className="w-16 h-16 object-cover rounded-xl border border-border/50 flex-shrink-0"
                           />
                         ))}
                       </div>
@@ -335,27 +344,27 @@ const MyAlerts = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => setEditingNotes(null)}
-                            className="flex-1 py-2 text-sm bg-muted text-foreground rounded-lg"
+                            className="flex-1 py-2.5 text-sm bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
                           >
                             Cancelar
                           </button>
                           <button
                             onClick={() => handleSaveNotes(alert.id)}
-                            className="flex-1 py-2 text-sm bg-primary text-primary-foreground rounded-lg"
+                            className="flex-1 py-2.5 text-sm bg-primary text-primary-foreground rounded-xl font-medium hover:brightness-110 transition-all"
                           >
                             Salvar
                           </button>
                         </div>
                       </div>
                     ) : alert.notes ? (
-                      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                      <div className="mb-4 p-3 bg-muted/40 rounded-xl border border-border/40">
                         <p className="text-sm text-muted-foreground">{alert.notes}</p>
                         <button
                           onClick={() => {
                             setEditingNotes(alert.id);
                             setTempNotes(alert.notes || '');
                           }}
-                          className="text-xs text-primary mt-2 flex items-center gap-1"
+                          className="text-xs text-primary mt-2 flex items-center gap-1 hover:underline"
                         >
                           <Edit3 className="w-3 h-3" />
                           Editar
@@ -367,7 +376,7 @@ const MyAlerts = () => {
                           setEditingNotes(alert.id);
                           setTempNotes('');
                         }}
-                        className="text-sm text-primary mb-4 flex items-center gap-1"
+                        className="text-sm text-primary mb-4 flex items-center gap-1 hover:underline"
                       >
                         <Edit3 className="w-4 h-4" />
                         Adicionar observação
@@ -380,14 +389,15 @@ const MyAlerts = () => {
                         <>
                           <button
                             onClick={() => handleResolve(alert.id)}
-                            className="w-full py-3 bg-success text-success-foreground rounded-xl font-semibold flex items-center justify-center gap-2"
+                            className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 text-white transition-all active:scale-[0.97]"
+                            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}
                           >
                             <Check className="w-5 h-5" />
                             Encerrar alerta
                           </button>
                           <button
                             onClick={() => handleRenew(alert.id)}
-                            className="w-full py-3 bg-secondary text-secondary-foreground rounded-xl font-semibold flex items-center justify-center gap-2"
+                            className="w-full py-3 btn-secondary rounded-xl font-semibold flex items-center justify-center gap-2"
                           >
                             <RefreshCw className="w-5 h-5" />
                             Ainda está alagado (+24h)
@@ -398,7 +408,7 @@ const MyAlerts = () => {
                       {alert.status === 'EXPIRED' && (
                         <button
                           onClick={() => handleRenew(alert.id)}
-                          className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center justify-center gap-2"
+                          className="w-full py-3 btn-emergency rounded-xl font-semibold flex items-center justify-center gap-2"
                         >
                           <RefreshCw className="w-5 h-5" />
                           Reativar alerta
@@ -409,7 +419,11 @@ const MyAlerts = () => {
                         href={getWhatsAppHelpUrl(alert)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full py-3 bg-success/10 text-success rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-success/20 transition-colors"
+                        className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
+                        style={{
+                          background: 'linear-gradient(135deg, #25d366, #128c7e)',
+                          color: 'white',
+                        }}
                       >
                         <MessageCircle className="w-5 h-5" />
                         Pedir ajuda

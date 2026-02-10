@@ -1,15 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, MapPin, Camera, FileCheck, Send, 
+import {
+  User, MapPin, Camera, FileCheck, Send,
   ChevronLeft, ChevronRight, AlertTriangle, Check,
   Loader2, X, Navigation, Search
 } from 'lucide-react';
-import { 
-  formatPhoneE164, 
-  formatPhoneDisplay, 
+import {
+  formatPhoneE164,
+  formatPhoneDisplay,
   isWithinBounds,
-  RIO_BRANCO_BOUNDS 
+  RIO_BRANCO_BOUNDS
 } from '@/types/alert';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,15 +43,15 @@ interface ExistingUser {
 export function ReportWizard() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [existingUser, setExistingUser] = useState<ExistingUser | null>(null);
   const [currentStep, setCurrentStep] = useState<WizardStep>('cadastro');
   const [isLoading, setIsLoading] = useState(false);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [createdAlertId, setCreatedAlertId] = useState<string | null>(null);
-  
+
   const [addressSearched, setAddressSearched] = useState(false);
-  
+
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     phone: '',
@@ -119,7 +119,7 @@ export function ReportWizard() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         if (!isWithinBounds(latitude, longitude)) {
           toast.error('Localização fora de Rio Branco, AC');
           setIsLoading(false);
@@ -144,7 +144,7 @@ export function ReportWizard() {
 
   const geocodeAddress = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
-    
+
     try {
       // Build address string
       const addressParts = [formData.street];
@@ -153,19 +153,19 @@ export function ReportWizard() {
       }
       addressParts.push(formData.neighborhood);
       const address = addressParts.join(', ');
-      
+
       console.log('Geocoding address:', address);
-      
+
       const { data, error } = await supabase.functions.invoke('geocode', {
         body: { address }
       });
-      
+
       if (error) {
         console.error('Geocode error:', error);
         toast.error('Erro ao buscar endereço. Use o GPS.');
         return false;
       }
-      
+
       if (data.success) {
         updateFormData({
           lat: data.lat,
@@ -193,7 +193,7 @@ export function ReportWizard() {
 
     const maxPhotos = 3;
     const remainingSlots = maxPhotos - formData.photos.length;
-    
+
     if (remainingSlots <= 0) {
       toast.error('Máximo de 3 fotos');
       return;
@@ -319,24 +319,24 @@ export function ReportWizard() {
     try {
       const fullAddress = getFullAddress();
       const phoneE164 = formatPhoneE164(formData.phone);
-      
+
       // First, create or get user in Supabase
       let userId: string;
       let token: string;
-      
+
       // Check if user exists by phone
       const { data: existingUsers } = await supabase
         .from('sentinela_users')
         .select('*')
         .eq('phone', phoneE164)
         .limit(1);
-      
+
       if (existingUsers && existingUsers.length > 0) {
         // Update existing user
         const existingUser = existingUsers[0];
         userId = existingUser.id;
         token = existingUser.token;
-        
+
         await supabase
           .from('sentinela_users')
           .update({
@@ -361,26 +361,26 @@ export function ReportWizard() {
           })
           .select()
           .single();
-        
+
         if (userError) throw userError;
         userId = newUser.id;
       }
-      
+
       setUserToken(token);
-      
+
       // Check active alerts count for this user
       const { count: activeCount } = await supabase
         .from('alerts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('status', 'ACTIVE');
-      
+
       if (activeCount && activeCount >= 3) {
         toast.error('Você já tem 3 alertas ativos. Encerre um antes de criar outro.');
         setIsLoading(false);
         return;
       }
-      
+
       // Create the alert
       const { data: newAlert, error: alertError } = await supabase
         .from('alerts')
@@ -394,34 +394,34 @@ export function ReportWizard() {
         })
         .select()
         .single();
-      
+
       if (alertError) throw alertError;
-      
+
       // Upload photos to storage and create alert_media records
       for (const photo of formData.photos) {
         try {
           // Convert base64 to blob
           const response = await fetch(photo);
           const blob = await response.blob();
-          
+
           const fileName = `${newAlert.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-          
+
           const { error: uploadError } = await supabase.storage
             .from('alert-photos')
             .upload(fileName, blob, {
               contentType: 'image/jpeg',
             });
-          
+
           if (uploadError) {
             console.error('Photo upload error:', uploadError);
             continue;
           }
-          
+
           // Get public URL
           const { data: urlData } = supabase.storage
             .from('alert-photos')
             .getPublicUrl(fileName);
-          
+
           // Create alert_media record
           await supabase
             .from('alert_media')
@@ -433,10 +433,10 @@ export function ReportWizard() {
           console.error('Photo processing error:', photoError);
         }
       }
-      
+
       setCreatedAlertId(newAlert.id);
       toast.success('Alerta publicado no mapa!');
-      
+
       // Save user to localStorage for form prefill on next visit
       localStorage.setItem('sentinela_current_user', JSON.stringify({
         id: userId,
@@ -447,7 +447,7 @@ export function ReportWizard() {
         defaultLat: formData.lat,
         defaultLng: formData.lng,
       }));
-      
+
       // Move to success state
       setCurrentStep('enviar');
     } catch (error) {
@@ -534,7 +534,7 @@ export function ReportWizard() {
                   />
                 </div>
               </div>
-              
+
               <button
                 onClick={handleGetLocation}
                 disabled={isLoading}
@@ -551,7 +551,7 @@ export function ReportWizard() {
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="section-title text-center">Você está alagado agora?</h2>
-            
+
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => {
@@ -635,7 +635,7 @@ export function ReportWizard() {
 
               {/* Mini Map Placeholder */}
               <div className="relative h-48 bg-muted rounded-xl border border-border overflow-hidden">
-                <div 
+                <div
                   className="absolute inset-0 opacity-30"
                   style={{
                     backgroundImage: `
@@ -711,8 +711,8 @@ export function ReportWizard() {
             <div className="grid grid-cols-3 gap-3">
               {formData.photos.map((photo, index) => (
                 <div key={index} className="relative aspect-square">
-                  <img 
-                    src={photo} 
+                  <img
+                    src={photo}
                     alt={`Foto ${index + 1}`}
                     className="w-full h-full object-cover rounded-xl border border-border"
                   />
@@ -779,8 +779,8 @@ export function ReportWizard() {
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <p className="text-sm text-foreground leading-relaxed">
-                Ao publicar este alerta, declaro que as informações são verdadeiras 
-                e entendo que comunicação falsa pode gerar responsabilização civil 
+                Ao publicar este alerta, declaro que as informações são verdadeiras
+                e entendo que comunicação falsa pode gerar responsabilização civil
                 e penal conforme a legislação aplicável.
               </p>
             </div>
@@ -903,30 +903,41 @@ export function ReportWizard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Progress Steps */}
-      <div className="bg-card border-b border-border p-4">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-          {steps.map((step, index) => (
-            <div 
-              key={step.id}
-              className={`flex flex-col items-center gap-1 ${
-                index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center
-                ${index < currentStepIndex ? 'bg-primary text-primary-foreground' : ''}
-                ${index === currentStepIndex ? 'bg-primary/20 text-primary ring-2 ring-primary' : ''}
-                ${index > currentStepIndex ? 'bg-muted text-muted-foreground' : ''}
-              `}>
-                {index < currentStepIndex ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <span className="text-xs font-semibold">{index + 1}</span>
-                )}
+      <div className="bg-card border-b border-border/50 px-4 pt-4 pb-3">
+        <div className="max-w-md mx-auto">
+          <div className="flex items-center justify-between relative">
+            {/* Connecting line behind steps */}
+            <div className="absolute top-4 left-4 right-4 h-0.5 bg-muted rounded-full" />
+            <div
+              className="absolute top-4 left-4 h-0.5 rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${(currentStepIndex / (steps.length - 1)) * (100 - (8 / steps.length))}%`,
+                background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)))',
+              }}
+            />
+
+            {steps.map((step, index) => (
+              <div
+                key={step.id}
+                className={`relative flex flex-col items-center gap-1.5 z-10 ${index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+              >
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300
+                  ${index < currentStepIndex ? 'bg-primary text-primary-foreground shadow-md' : ''}
+                  ${index === currentStepIndex ? 'bg-primary text-primary-foreground shadow-md ring-4 ring-primary/20 scale-110' : ''}
+                  ${index > currentStepIndex ? 'bg-card text-muted-foreground border-2 border-muted' : ''}
+                `}>
+                  {index < currentStepIndex ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <span className="text-xs font-bold">{index + 1}</span>
+                  )}
+                </div>
+                <span className="text-[10px] font-medium hidden sm:block">{step.label}</span>
               </div>
-              <span className="text-[10px] font-medium hidden sm:block">{step.label}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -939,12 +950,12 @@ export function ReportWizard() {
 
       {/* Navigation */}
       {!['enviar', 'pergunta'].includes(currentStep) && (
-        <div className="border-t border-border bg-card p-4">
+        <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl p-4 safe-area-bottom">
           <div className="flex gap-3 max-w-md mx-auto">
             {currentStepIndex > 0 && (
               <button
                 onClick={handleBack}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80"
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors active:scale-[0.97]"
               >
                 <ChevronLeft className="w-5 h-5" />
                 Voltar

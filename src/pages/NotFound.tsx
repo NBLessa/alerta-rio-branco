@@ -1,23 +1,31 @@
 import { Link } from "react-router-dom";
-import { Home, AlertTriangle } from "lucide-react";
+import { Home, MapPin } from "lucide-react";
 import { Header } from "@/components/Header";
 
 const NotFound = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center max-w-md mx-auto animate-fade-in">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertTriangle className="w-10 h-10 text-primary" />
+
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center max-w-sm mx-auto animate-fade-in">
+          {/* Animated icon */}
+          <div className="relative w-28 h-28 mx-auto mb-8">
+            <div className="absolute inset-0 bg-primary/10 rounded-3xl rotate-6 animate-pulse" />
+            <div className="absolute inset-0 bg-primary/5 rounded-3xl -rotate-3" />
+            <div className="relative w-full h-full bg-gradient-to-br from-primary/15 to-primary/5 rounded-3xl flex items-center justify-center border border-primary/10">
+              <MapPin className="w-14 h-14 text-primary/70 animate-bounce-soft" />
+            </div>
           </div>
-          
-          <h1 className="text-4xl font-bold text-foreground mb-4">404</h1>
-          <p className="text-xl text-muted-foreground mb-8">
+
+          <h1 className="text-6xl font-extrabold text-foreground mb-2 tracking-tight">404</h1>
+          <p className="text-lg text-muted-foreground mb-2 font-medium">
             Página não encontrada
           </p>
-          
+          <p className="text-sm text-muted-foreground/70 mb-8">
+            A página que você procura não existe ou foi movida.
+          </p>
+
           <Link
             to="/"
             className="btn-emergency inline-flex"

@@ -15,14 +15,12 @@ const Index = () => {
     return !hasSeenSplash;
   });
 
-  // Get filter options
   const filter = FILTER_OPTIONS.find(f => f.id === activeFilter);
-  
-  // Use realtime alerts hook for automatic updates
+
   const { alerts, activeCount } = useRealtimeAlerts({
     filterHours: filter?.hours,
     includeHistory: filter?.includeHistory,
-    pollingInterval: 30000, // 30 seconds backup polling
+    pollingInterval: 30000,
   });
 
   const handleFilterChange = (filterId: string) => {
@@ -42,31 +40,31 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      
-      <FilterBar 
+
+      <FilterBar
         activeFilter={activeFilter}
         onFilterChange={handleFilterChange}
         activeCount={activeCount}
       />
-      
-      {/* River Level Badge */}
+
       <RiverLevelBadge />
-      
-      <MapView 
+
+      <MapView
         alerts={alerts}
         selectedAlert={selectedAlert}
         onAlertSelect={setSelectedAlert}
       />
-      
+
       {/* Footer */}
-      <footer className="bg-card border-t border-border py-2 sm:py-3 px-3 sm:px-4 text-center text-[10px] sm:text-xs text-muted-foreground safe-area-bottom">
-        <p>
-          Por{' '}
-          <a 
-            href="https://instagram.com/inovacehub" 
-            target="_blank" 
+      <footer className="relative bg-card border-t border-border/50 py-3 sm:py-4 px-4 sm:px-6 text-center safe-area-bottom">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
+          Desenvolvido por{' '}
+          <a
+            href="https://instagram.com/inovacehub"
+            target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline font-medium"
+            className="text-primary hover:underline font-semibold transition-colors"
           >
             @Inovacehub
           </a>

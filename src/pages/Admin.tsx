@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Lock, Users, MapPin, LogOut, Check, X, 
+import {
+  Lock, Users, MapPin, LogOut, Check, X,
   RefreshCw, Phone, Calendar, AlertTriangle,
   CheckCircle, Trash2, Pencil, Loader2
 } from 'lucide-react';
@@ -85,10 +85,10 @@ export default function Admin() {
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
-  
+
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
+
   // Edit form states
   const [editAlertForm, setEditAlertForm] = useState({
     addressText: '',
@@ -185,7 +185,7 @@ export default function Admin() {
   useEffect(() => {
     const isAuth = sessionStorage.getItem('sentinela_admin') === 'true';
     setIsAuthenticated(isAuth);
-    
+
     if (isAuth) {
       loadData();
     }
@@ -213,7 +213,7 @@ export default function Admin() {
     try {
       const { error } = await supabase
         .from('alerts')
-        .update({ 
+        .update({
           status: 'RESOLVED' as const,
           resolved_at: new Date().toISOString()
         })
@@ -232,10 +232,10 @@ export default function Admin() {
   const handleReactivateAlert = async (alertId: string) => {
     try {
       const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      
+
       const { error } = await supabase
         .from('alerts')
-        .update({ 
+        .update({
           status: 'ACTIVE' as const,
           expires_at: newExpiresAt,
           resolved_at: null
@@ -265,7 +265,7 @@ export default function Admin() {
 
   const handleSaveAlert = async () => {
     if (!selectedAlert) return;
-    
+
     try {
       const { error } = await supabase
         .from('alerts')
@@ -294,7 +294,7 @@ export default function Admin() {
 
   const handleConfirmDeleteAlert = async () => {
     if (!selectedAlert) return;
-    
+
     try {
       // First delete related media
       await supabase
@@ -332,7 +332,7 @@ export default function Admin() {
 
   const handleSaveUser = async () => {
     if (!selectedUser) return;
-    
+
     try {
       const { error } = await supabase
         .from('sentinela_users')
@@ -361,7 +361,7 @@ export default function Admin() {
 
   const handleConfirmDeleteUser = async () => {
     if (!selectedUser) return;
-    
+
     try {
       // First delete user's alerts and their media
       const { data: userAlerts } = await supabase
@@ -371,7 +371,7 @@ export default function Admin() {
 
       if (userAlerts && userAlerts.length > 0) {
         const alertIds = userAlerts.map(a => a.id);
-        
+
         // Delete media for all user's alerts
         await supabase
           .from('alert_media')
@@ -416,31 +416,31 @@ export default function Admin() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-primary" />
+        <Card className="w-full max-w-md shadow-xl border-border/50 animate-scale-in">
+          <CardHeader className="text-center pb-2">
+            <div className="w-18 h-18 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center mx-auto mb-5 border border-primary/10" style={{ width: '72px', height: '72px' }}>
+              <Lock className="w-9 h-9 text-primary" />
             </div>
-            <CardTitle>Área Administrativa</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
+            <CardTitle className="text-xl">Área Administrativa</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1.5">
               Digite o código de acesso para continuar
             </p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-2">
             <input
               type="password"
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               placeholder="Código de acesso"
-              className="input-field"
+              className="input-field text-center"
               autoFocus
             />
-            <Button onClick={handleLogin} className="w-full">
+            <Button onClick={handleLogin} className="w-full h-11 text-base font-semibold">
               Acessar
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full"
               onClick={() => navigate('/')}
             >
@@ -455,10 +455,11 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b border-border px-4 py-4">
+      <header className="relative bg-card border-b border-border/50 px-4 py-4">
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-secondary to-primary opacity-30" />
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center border border-primary/10">
               <Lock className="w-5 h-5 text-primary" />
             </div>
             <div>
@@ -466,7 +467,7 @@ export default function Admin() {
               <p className="text-xs text-muted-foreground">Sentinela • Supabase</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>
@@ -477,45 +478,53 @@ export default function Admin() {
       <main className="max-w-7xl mx-auto p-4 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-border/50 shadow-md">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-8 h-8 text-primary" />
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center ring-2 ring-primary/10">
+                  <AlertTriangle className="w-5 h-5 text-primary" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{activeCount}</p>
+                  <p className="text-2xl font-bold tabular-nums">{activeCount}</p>
                   <p className="text-xs text-muted-foreground">Alertas Ativos</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border/50 shadow-md">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <MapPin className="w-8 h-8 text-secondary" />
+                <div className="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center ring-2 ring-secondary/10">
+                  <MapPin className="w-5 h-5 text-secondary" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{alerts.length}</p>
+                  <p className="text-2xl font-bold tabular-nums">{alerts.length}</p>
                   <p className="text-xs text-muted-foreground">Total de Alertas</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border/50 shadow-md">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-success" />
+                <div className="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center ring-2 ring-success/10">
+                  <Users className="w-5 h-5 text-success" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{users.length}</p>
+                  <p className="text-2xl font-bold tabular-nums">{users.length}</p>
                   <p className="text-xs text-muted-foreground">Usuários Cadastrados</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border/50 shadow-md">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-muted-foreground" />
+                <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center ring-2 ring-border/30">
+                  <CheckCircle className="w-5 h-5 text-muted-foreground" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold tabular-nums">
                     {alerts.filter(a => a.status === 'RESOLVED').length}
                   </p>
                   <p className="text-xs text-muted-foreground">Resolvidos</p>
@@ -764,7 +773,7 @@ export default function Admin() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleConfirmDeleteAlert}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -831,7 +840,7 @@ export default function Admin() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleConfirmDeleteUser}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
