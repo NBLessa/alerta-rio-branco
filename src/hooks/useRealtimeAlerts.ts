@@ -57,7 +57,7 @@ export function useRealtimeAlerts(options: UseRealtimeAlertsOptions = {}) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   const isMountedRef = useRef(true);
-  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch alerts from Supabase
   const fetchAlerts = useCallback(async () => {
